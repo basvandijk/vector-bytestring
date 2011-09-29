@@ -7,12 +7,49 @@
 
 {-# OPTIONS_GHC -fno-warn-name-shadowing #-}
 
+-- |
+-- Module      : Data.Vector.Storable.ByteString
+-- Copyright   : (c) The University of Glasgow 2001,
+--               (c) David Roundy 2003-2005,
+--               (c) Simon Marlow 2005
+--               (c) Bjorn Bringert 2006
+--               (c) Don Stewart 2005-2008
+--               (c) Bas van Dijk 2011
+--
+--               Array fusion code:
+--               (c) 2001,2002 Manuel M T Chakravarty & Gabriele Keller
+--               (c) 2006      Manuel M T Chakravarty & Roman Leshchinskiy
+--
+-- License     : BSD-style
+--
+-- Maintainer  : Bas van Dijk <v.dijk.bas@gmail.com>
+-- Stability   : experimental
+--
+-- A time and space-efficient implementation of byte vectors using
+-- vectors of Word8, suitable for high performance use, both in terms
+-- of large data quantities, or high speed requirements. Byte vectors
+-- are encoded as strict 'Word8' arrays of bytes, held in a 'ForeignPtr',
+-- and can be passed between C and Haskell with little effort.
+--
+-- This module is intended to be imported @qualified@, to avoid name
+-- clashes with "Prelude" functions.  eg.
+--
+-- > import qualified Data.Vector.Storable.ByteString as B
+--
+-- Original GHC implementation by Bryan O\'Sullivan.
+-- Rewritten to use 'Data.Array.Unboxed.UArray' by Simon Marlow.
+-- Rewritten to support slices and use 'ForeignPtr' by David Roundy.
+-- Polished and extended by Don Stewart.
+-- Redefined ByteString as a Vector (from the vector package) of Word8s
+-- by Bas van Dijk
+--
+
 module Data.Vector.Storable.ByteString (
 
-        -- * The @ByteString@ type
+        -- * The ByteString type
         ByteString,             -- instances: Eq, Ord, Show, Read, Data, Typeable, Monoid
 
-        -- * Introducing and eliminating 'ByteString's
+        -- * Introducing and eliminating ByteStrings
         empty,                  -- :: ByteString
         singleton,              -- :: Word8   -> ByteString
         pack,                   -- :: [Word8] -> ByteString
@@ -40,7 +77,7 @@ module Data.Vector.Storable.ByteString (
         intercalate,            -- :: ByteString -> [ByteString] -> ByteString
         transpose,              -- :: [ByteString] -> [ByteString]
 
-        -- * Reducing 'ByteString's (folds)
+        -- * Reducing ByteStrings (folds)
         foldl,                  -- :: (a -> Word8 -> a) -> a -> ByteString -> a
         foldl',                 -- :: (a -> Word8 -> a) -> a -> ByteString -> a
         foldl1,                 -- :: (Word8 -> Word8 -> Word8) -> ByteString -> Word8
@@ -138,15 +175,15 @@ module Data.Vector.Storable.ByteString (
         -- ** Copying ByteStrings
         copy,                   -- :: ByteString -> ByteString
 
-        -- ** Packing 'CString's and pointers
+        -- ** Packing CStrings and pointers
         packCString,            -- :: CString -> IO ByteString
         packCStringLen,         -- :: CStringLen -> IO ByteString
 
-        -- ** Using ByteStrings as 'CString's
+        -- ** Using ByteStrings as CStrings
         useAsCString,           -- :: ByteString -> (CString    -> IO a) -> IO a
         useAsCStringLen,        -- :: ByteString -> (CStringLen -> IO a) -> IO a
 
-        -- * I\/O with 'ByteString's
+        -- * I\/O with ByteStrings
 
         -- ** Standard input and output
         getLine,                -- :: IO ByteString
@@ -167,11 +204,11 @@ module Data.Vector.Storable.ByteString (
         hGetSome,               -- :: Handle -> Int -> IO ByteString
         hGetNonBlocking,        -- :: Handle -> Int -> IO ByteString
         hPut,                   -- :: Handle -> ByteString -> IO ()
+        hPutNonBlocking,        -- :: Handle -> ByteString -> IO ByteString
         hPutStr,                -- :: Handle -> ByteString -> IO ()
         hPutStrLn,              -- :: Handle -> ByteString -> IO ()
 
         breakByte
-
   ) where
 
 
@@ -198,7 +235,7 @@ import Foreign.ForeignPtr      ( newForeignPtr, withForeignPtr )
 import Foreign.Marshal.Alloc   ( allocaBytes, mallocBytes
                                , reallocBytes, finalizerFree
                                )
-import Foreign.Marshal.Array   ( advancePtr, allocaArray )
+import Foreign.Marshal.Array   ( allocaArray )
 import Foreign.Marshal.Utils   ( copyBytes )
 import Foreign.Ptr             ( Ptr, nullPtr, plusPtr, minusPtr, castPtr )
 import Foreign.Storable        ( peek, poke
@@ -210,7 +247,7 @@ import System.IO               ( IO, FilePath, Handle
                                , IOMode(ReadMode, WriteMode, AppendMode)
                                , stdin, stdout
                                , hGetBuf, hGetBufSome, hGetBufNonBlocking
-                               , hPutBuf, hFileSize
+                               , hPutBuf, hPutBufNonBlocking, hFileSize
                                , openBinaryFile, hClose
                                )
 import System.IO.Unsafe        ( unsafePerformIO )
@@ -236,7 +273,6 @@ import           Data.List         ( (++) )
 import Control.Monad.Primitive ( unsafeInlineIO )
 
 -- from vector:
-import Data.Vector.Storable.Internal ( Vector(Vector), mallocVector )
 import qualified Data.Vector.Storable as VS
 
 -- from vector-bytestring (this package):
@@ -251,6 +287,7 @@ import Data.Vector.Storable.ByteString.Unsafe
     ( unsafeHead, unsafeTail
     , unsafeTake, unsafeDrop
     )
+import ForeignPtr ( mallocVector )
 
 
 --------------------------------------------------------------------------------
@@ -308,11 +345,11 @@ tail = VS.tail
 -- if it is empty.
 {-# INLINE uncons #-}
 uncons :: ByteString -> Maybe (Word8, ByteString)
-uncons (Vector p l fp)
+uncons v
     | l <= 0    = Nothing
-    | otherwise = Just ( unsafeInlineIO $ withForeignPtr fp $ \_ -> peek p
-                       , Vector (p `advancePtr` 1) (l-1) fp
-                       )
+    | otherwise = Just (VS.unsafeHead v, VS.unsafeTail v)
+    where
+      l = VS.length v
 
 -- | /O(1)/ Extract the last element of a ByteString, which must be finite and non-empty.
 -- An exception will be thrown in the case of an empty ByteString.
@@ -351,10 +388,12 @@ reverse = VS.reverse
 -- the 'ByteString'.  It is analogous to the intersperse function on
 -- Lists.
 intersperse :: Word8 -> ByteString -> ByteString
-intersperse c v@(Vector p l fp)
+intersperse c v
     | l < 2     = v
-    | otherwise = unsafeCreate (2*l-1) $ \p' -> withForeignPtr fp $ \_ ->
+    | otherwise = unsafeCreate (2*l-1) $ \p' ->  withForeignPtr fp $ \p ->
                     c_intersperse p' p (fromIntegral l) c
+    where
+      (fp, _, l) = VS.unsafeToForeignPtr v
 
 -- | /O(n)/ The 'intercalate' function takes a 'ByteString' and a list of
 -- 'ByteString's and concatenates the list after interspersing the first
@@ -372,13 +411,16 @@ intercalate s = concat . List.intersperse s
 -- with a char. Around 4 times faster than the generalised join.
 {-# INLINE intercalateWithByte #-}
 intercalateWithByte :: Word8 -> ByteString -> ByteString -> ByteString
-intercalateWithByte c (Vector p1 l1 fp1) (Vector p2 l2 fp2) =
+intercalateWithByte c v1 v2 =
     unsafeCreate (l1 + l2 + 1) $ \ptr ->
-      withForeignPtr fp1 $ \_ ->
-        withForeignPtr fp2 $ \_ -> do
+      withForeignPtr fp1 $ \p1 ->
+        withForeignPtr fp2 $ \p2 -> do
           memcpy ptr p1 (fromIntegral l1)
           poke (ptr `plusPtr` l1) c
           memcpy (ptr `plusPtr` (l1 + 1)) p2 (fromIntegral l2)
+        where
+          (fp1, _, l1) = VS.unsafeToForeignPtr v1
+          (fp2, _, l2) = VS.unsafeToForeignPtr v2
 
 -- | The 'transpose' function transposes the rows and columns of its
 -- 'ByteString' argument.
@@ -490,7 +532,7 @@ scanr1 = VS.scanr1
 -- passing an accumulating parameter from left to right, and returning a
 -- final value of this accumulator together with the new list.
 mapAccumL :: (acc -> Word8 -> (acc, Word8)) -> acc -> ByteString -> (acc, ByteString)
-mapAccumL f acc (Vector p l fp) = unsafeInlineIO $ withForeignPtr fp $ \_ -> do
+mapAccumL f acc v = unsafeInlineIO $  withForeignPtr fp $ \p -> do
     fp' <- mallocVector l
     withForeignPtr fp' $ \p' -> do
 
@@ -503,7 +545,9 @@ mapAccumL f acc (Vector p l fp) = unsafeInlineIO $ withForeignPtr fp $ \_ -> do
                 mapAccumL_ a' (m+1)
 
       acc' <- mapAccumL_ acc 0
-      return $! (acc', Vector p' l fp')
+      return $! (acc', VS.unsafeFromForeignPtr fp' 0 l)
+    where
+      (fp, _, l) = VS.unsafeToForeignPtr v
 {-# INLINE mapAccumL #-}
 
 -- | The 'mapAccumR' function behaves like a combination of 'map' and
@@ -511,7 +555,7 @@ mapAccumL f acc (Vector p l fp) = unsafeInlineIO $ withForeignPtr fp $ \_ -> do
 -- passing an accumulating parameter from right to left, and returning a
 -- final value of this accumulator together with the new ByteString.
 mapAccumR :: (acc -> Word8 -> (acc, Word8)) -> acc -> ByteString -> (acc, ByteString)
-mapAccumR f acc (Vector p l fp) = unsafeInlineIO $ withForeignPtr fp $ \_ -> do
+mapAccumR f acc v = unsafeInlineIO $  withForeignPtr fp $ \p -> do
     fp' <- mallocVector l
     withForeignPtr fp' $ \p' -> do
 
@@ -524,7 +568,9 @@ mapAccumR f acc (Vector p l fp) = unsafeInlineIO $ withForeignPtr fp $ \_ -> do
                 mapAccumR_ a' (m-1)
 
       acc' <- mapAccumR_ acc (l-1)
-      return $! (acc', Vector p' l fp')
+      return $! (acc', VS.unsafeFromForeignPtr fp' 0 l)
+    where
+      (fp, _, l) = VS.unsafeToForeignPtr v
 {-# INLINE mapAccumR #-}
 
 --------------------------------------------------------------------------------
@@ -626,13 +672,14 @@ span = VS.span
 -- > span  (=='c') "abcd" == spanByte 'c' "abcd"
 --
 spanByte :: Word8 -> ByteString -> (ByteString, ByteString)
-spanByte c ps@(Vector p l fp) = unsafeInlineIO $ withForeignPtr fp $ \_ ->
+spanByte c v = unsafeInlineIO $  withForeignPtr fp $ \p ->
     go p 0
   where
-    go !p !i | i >= l    = return (ps, empty)
+    (fp, _, l) = VS.unsafeToForeignPtr v
+    go !p !i | i >= l    = return (v, empty)
              | otherwise = do c' <- peekByteOff p i
                               if c /= c'
-                                then return (unsafeTake i ps, unsafeDrop i ps)
+                                then return (unsafeTake i v, unsafeDrop i v)
                                 else go p (i+1)
 {-# INLINE spanByte #-}
 
@@ -724,19 +771,21 @@ groupBy  k xs
 -- | 'findIndexOrEnd' is a variant of findIndex, that returns the length
 -- of the string if no element is found, rather than Nothing.
 findIndexOrEnd :: (Word8 -> Bool) -> ByteString -> Int
-findIndexOrEnd k (Vector p l fp) = unsafeInlineIO $ withForeignPtr fp $ \_ ->
-                                     go p
-  where
-    go !ptr | ptr == p `plusPtr` l = return l
-            | otherwise = do w <- peek ptr
-                             if k w
-                               then return (ptr `minusPtr` p)
-                               else go (ptr `plusPtr` 1)
+findIndexOrEnd k v = unsafeInlineIO $  withForeignPtr fp $ \p ->
+  let end = p `plusPtr` l
+      go !ptr | ptr == end = return l
+              | otherwise = do w <- peek ptr
+                               if k w
+                                 then return (ptr `minusPtr` p)
+                                 else go (ptr `plusPtr` 1)
+  in go p
+    where
+      (fp, _, l) = VS.unsafeToForeignPtr v
 {-# INLINE findIndexOrEnd #-}
 
 -- | /O(n)/ Return all initial segments of the given 'ByteString', shortest first.
 inits :: ByteString -> [ByteString]
-inits (Vector p n fp) = [Vector (p `plusPtr` s) n fp | s <- [0..n]]
+inits v = [VS.drop s v | s <- [0..VS.length v]]
 
 -- | /O(n)/ Return all final segments of the given 'ByteString', longest first.
 tails :: ByteString -> [ByteString]
@@ -763,17 +812,22 @@ tails p | null p    = [empty]
 -- are slices of the original.
 --
 split :: Word8 -> ByteString -> [ByteString]
-split _ (Vector _ 0 _)  = []
-split w (Vector p l fp) = loop 0
+split w v | l == 0    = []
+          | otherwise = loop 0
     where
-      loop !n =
-          let r = p `plusPtr` n
-              q = unsafeInlineIO $ withForeignPtr fp $ \_ ->
-                    memchr r w (fromIntegral (l-n))
-          in if q == nullPtr
-             then [Vector r (l-n) fp]
-             else let i = q `minusPtr` p
-                  in Vector r (i-n) fp : loop (i+1)
+      (fp, _, l) = VS.unsafeToForeignPtr v
+
+      withFP = unsafeInlineIO . withForeignPtr fp
+
+      loop !n | q == nullPtr = vec l'    : []
+              | otherwise    = vec (i-n) : loop (i+1)
+          where
+            vec = VS.unsafeFromForeignPtr fp n
+
+            q = withFP $ \p -> memchr (p `plusPtr` n) w (fromIntegral l')
+            i = withFP $ \p -> return (q `minusPtr` p)
+
+            l' = l - n
 {-# INLINE split #-}
 
 -- | /O(n)/ Splits a 'ByteString' into components delimited by
@@ -785,22 +839,23 @@ split w (Vector p l fp) = loop 0
 -- > splitWith (=='a') []        == []
 --
 splitWith :: (Word8 -> Bool) -> ByteString -> [ByteString]
-splitWith _    (Vector _ 0 _)  = []
-splitWith pred (Vector p l fp) = splitWith0 p l
-  where
-    splitWith0 !p' !l' = unsafeInlineIO $ withForeignPtr fp $ \_ ->
-                           splitLoop 0 p'
-      where
-        splitLoop !idx !p'
-          | idx >= l' = return [Vector p' idx fp]
-          | otherwise = do
-              w <- peekElemOff p' idx
-              if pred w
-                then return ( Vector p' idx fp
-                            : let !idx' = idx+1
-                              in splitWith0 (p' `plusPtr` idx') (l'-idx')
-                            )
-                else splitLoop (idx+1) p'
+splitWith pred v
+    | l == 0    = []
+    | otherwise = splitWith0 0 l
+    where
+      (fp, _, l) = VS.unsafeToForeignPtr v
+
+      splitWith0 off len = unsafeInlineIO $ withForeignPtr fp $ \p ->
+        let vec = VS.unsafeFromForeignPtr fp off
+            splitLoop idx
+                | idx >= len = return [vec idx]
+                | otherwise = do
+                    let sepIx = off + idx
+                    w <- peekElemOff p sepIx
+                    if pred w
+                      then return (vec idx : splitWith0 (sepIx+1) (len-idx-1))
+                      else splitLoop (idx+1)
+        in splitLoop 0
 {-# INLINE splitWith #-}
 
 
@@ -811,14 +866,17 @@ splitWith pred (Vector p l fp) = splitWith0 p l
 -- | /O(n)/ The 'isPrefixOf' function takes two ByteStrings and returns 'True'
 -- iff the first is a prefix of the second.
 isPrefixOf :: ByteString -> ByteString -> Bool
-isPrefixOf (Vector p1 l1 fp1) (Vector p2 l2 fp2)
+isPrefixOf v1 v2
     | l1 == 0   = True
     | l2 < l1   = False
     | otherwise = unsafeInlineIO $
-                    withForeignPtr fp1 $ \_ ->
-                      withForeignPtr fp2 $ \_ -> do
-        i <- memcmp p1 p2 (fromIntegral l1)
-        return $! i == 0
+                    withForeignPtr fp1 $ \p1 ->
+                      withForeignPtr fp2 $ \p2 -> do
+                        i <- memcmp p1 p2 (fromIntegral l1)
+                        return $! i == 0
+    where
+      (fp1, _, l1) = VS.unsafeToForeignPtr v1
+      (fp2, _, l2) = VS.unsafeToForeignPtr v2
 
 -- | /O(n)/ The 'isSuffixOf' function takes two ByteStrings and returns 'True'
 -- iff the first is a suffix of the second.
@@ -830,14 +888,17 @@ isPrefixOf (Vector p1 l1 fp1) (Vector p2 l2 fp2)
 -- However, the real implemenation uses memcmp to compare the end of the
 -- string only, with no reverse required..
 isSuffixOf :: ByteString -> ByteString -> Bool
-isSuffixOf (Vector p1 l1 fp1) (Vector p2 l2 fp2)
+isSuffixOf v1 v2
     | l1 == 0   = True
     | l2 < l1   = False
     | otherwise = unsafeInlineIO $
-                    withForeignPtr fp1 $ \_ ->
-                      withForeignPtr fp2 $ \_ -> do
+                    withForeignPtr fp1 $ \p1 ->
+                      withForeignPtr fp2 $ \p2 -> do
         i <- memcmp p1 (p2 `plusPtr` (l2 - l1)) (fromIntegral l1)
         return $! i == 0
+    where
+      (fp1, _, l1) = VS.unsafeToForeignPtr v1
+      (fp2, _, l2) = VS.unsafeToForeignPtr v2
 
 -- | Check whether one string is a substring of another. @isInfixOf
 -- p s@ is equivalent to @not (null (findSubstrings p s))@.
@@ -882,8 +943,8 @@ breakSubstring :: ByteString -- ^ String to search for
 breakSubstring pat src = search 0 src
   where
     search !n !s
-        | null s             = (src,empty)      -- not found
-        | pat `isPrefixOf` s = (take n src,s)
+        | null s             = (src, empty) -- not found
+        | pat `isPrefixOf` s = (take n src, s)
         | otherwise          = search (n+1) (unsafeTail s)
 
 -- | Get the first index of a substring in another string,
@@ -987,14 +1048,16 @@ elemIndices w bs = VS.toList $ VS.elemIndices w bs
 -- > (-) (length xs - 1) `fmap` elemIndex c (reverse xs)
 --
 elemIndexEnd :: Word8 -> ByteString -> Maybe Int
-elemIndexEnd ch (Vector p l fp) = unsafeInlineIO $ withForeignPtr fp $ \_ ->
-    go (l-1)
-  where
-    go !i | i < 0     = return Nothing
-          | otherwise = do ch' <- peekByteOff p i
-                           if ch == ch'
-                             then return $ Just i
-                             else go (i-1)
+elemIndexEnd ch v = unsafeInlineIO $ withForeignPtr fp $ \p ->
+                      let go !i | i < 0     = return Nothing
+                                | otherwise = do
+                                    ch' <- peekByteOff p i
+                                    if ch == ch'
+                                      then return $ Just i
+                                      else go (i-1)
+                      in go (l - 1)
+    where
+      (fp, _, l) = VS.unsafeToForeignPtr v
 {-# INLINE elemIndexEnd #-}
 
 -- | The 'findIndex' function takes a predicate and a 'ByteString' and
@@ -1014,8 +1077,10 @@ findIndices p bs = VS.toList $ VS.findIndices p bs
 --
 -- But more efficiently than using length on the intermediate list.
 count :: Word8 -> ByteString -> Int
-count w (Vector p l fp) = unsafeInlineIO $ withForeignPtr fp $ \_ ->
+count w v = unsafeInlineIO $ withForeignPtr fp $ \p ->
     fmap fromIntegral $ c_count p (fromIntegral l) w
+    where
+      (fp, _, l) = VS.unsafeToForeignPtr v
 {-# INLINE count #-}
 
 
@@ -1048,19 +1113,24 @@ zipWith f ps qs
 -- performed on the result of zipWith.
 --
 zipWith' :: (Word8 -> Word8 -> Word8) -> ByteString -> ByteString -> ByteString
-zipWith' f (Vector p1 l1 fp1) (Vector p2 l2 fp2) = unsafeInlineIO $
-    withForeignPtr fp1 $ \_ -> withForeignPtr fp2 $ \_ ->
-      create len $ \p ->
-        let zipWith_ !n
-                | n >= len = return ()
-                | otherwise = do
-                    x <- peekByteOff p1 n
-                    y <- peekByteOff p2 n
-                    pokeByteOff p n (f x y)
-                    zipWith_ (n+1)
-        in zipWith_ 0
+zipWith' f v1 v2 =
+    unsafeInlineIO $
+      withForeignPtr fp1 $ \p1 ->
+         withForeignPtr fp2 $ \p2 ->
+           create len $ \p ->
+             let zipWith_ !n
+                     | n >= len = return ()
+                     | otherwise = do
+                         x <- peekByteOff p1 n
+                         y <- peekByteOff p2 n
+                         pokeByteOff p n (f x y)
+                         zipWith_ (n+1)
+             in zipWith_ 0
     where
       len = min l1 l2
+
+      (fp1, _, l1) = VS.unsafeToForeignPtr v1
+      (fp2, _, l2) = VS.unsafeToForeignPtr v2
 {-# INLINE zipWith' #-}
 
 {-# RULES
@@ -1083,10 +1153,13 @@ unzip ls = ( VS.fromList $ List.map fst ls
 
 -- | /O(n)/ Sort a ByteString efficiently, using counting sort.
 sort :: ByteString -> ByteString
-sort (Vector p l fp) = unsafeCreate l $ \p' -> allocaArray 256 $ \arr -> do
+sort v = unsafeCreate l $ \p' -> allocaArray 256 $ \arr -> do
 
-    void $ memset (castPtr arr) 0 (256 * fromIntegral (sizeOf (undefined :: CSize)))
-    withForeignPtr fp $ \_ -> countOccurrences arr p l
+    void $ memset (castPtr arr)
+                  0
+                  (256 * fromIntegral (sizeOf (undefined :: CSize)))
+
+    withForeignPtr fp $ \p -> countOccurrences arr p l
 
     let go 256 _   = return ()
         go !i !ptr = do n <- peekElemOff arr i
@@ -1094,6 +1167,8 @@ sort (Vector p l fp) = unsafeCreate l $ \p' -> allocaArray 256 $ \arr -> do
                         go (i + 1) (ptr `plusPtr` fromIntegral n)
     go 0 p'
   where
+    (fp, _, l) = VS.unsafeToForeignPtr v
+
     -- | Count the number of occurrences of each byte.
     -- Used by 'sort'
     --
@@ -1121,9 +1196,11 @@ sort (Vector p l fp) = unsafeCreate l $ \p' -> allocaArray 256 $ \arr -> do
 -- is needed in the rest of the program.
 --
 copy :: ByteString -> ByteString
-copy (Vector p l fp) = unsafeCreate l $ \p' ->
-                         withForeignPtr fp $ \_ ->
-                           memcpy p' p (fromIntegral l)
+copy v = unsafeCreate l $ \p' ->
+            withForeignPtr fp $ \p ->
+             memcpy p' p (fromIntegral l)
+    where
+      (fp, _, l) = VS.unsafeToForeignPtr v
 
 --------------------------------------------------------------------------------
 --  ** Packing 'CString's and pointers
@@ -1154,17 +1231,19 @@ packCStringLen (_, len) =
 -- null-terminated @CString@.  The @CString@ will be freed
 -- automatically. This is a memcpy(3).
 useAsCString :: ByteString -> (CString -> IO a) -> IO a
-useAsCString (Vector p l fp) action = do
+useAsCString v action = do
  allocaBytes (l+1) $ \buf ->
-   withForeignPtr fp $ \_ -> do
+    withForeignPtr fp $ \p -> do
      memcpy buf p (fromIntegral l)
      pokeByteOff buf l (0::Word8)
      action (castPtr buf)
+    where
+      (fp, _, l) = VS.unsafeToForeignPtr v
 
 -- | /O(n) construction/ Use a @ByteString@ with a function requiring a @CStringLen@.
 -- As for @useAsCString@ this function makes a copy of the original @ByteString@.
 useAsCStringLen :: ByteString -> (CStringLen -> IO a) -> IO a
-useAsCStringLen p@(Vector _ l _) f = useAsCString p $ \cstr -> f (cstr,l)
+useAsCStringLen v f = useAsCString v $ \cstr -> f (cstr, VS.length v)
 
 
 --------------------------------------------------------------------------------
@@ -1290,8 +1369,31 @@ mkBigPS _ pss = return $! concat (List.reverse pss)
 
 -- | Outputs a 'ByteString' to the specified 'Handle'.
 hPut :: Handle -> ByteString -> IO ()
-hPut _ (Vector _  0 _) = return ()
-hPut h (Vector p l fp) = withForeignPtr fp $ \_ -> hPutBuf h p l
+hPut h v
+    | l == 0    = return ()
+    | otherwise =  withForeignPtr fp $ \p -> hPutBuf h p l
+    where
+      (fp, _, l) = VS.unsafeToForeignPtr v
+
+-- | Similar to 'hPut' except that it will never block. Instead it returns
+-- any tail that did not get written. This tail may be 'empty' in the case that
+-- the whole string was written, or the whole original string if nothing was
+-- written. Partial writes are also possible.
+--
+-- Note: on Windows and with Haskell implementation other than GHC, this
+-- function does not work correctly; it behaves identically to 'hPut'.
+--
+#if defined(__GLASGOW_HASKELL__)
+hPutNonBlocking :: Handle -> ByteString -> IO ByteString
+hPutNonBlocking h v = do
+  bytesWritten <-  withForeignPtr fp $ \p-> hPutBufNonBlocking h p l
+  return $! drop bytesWritten v
+      where
+        (fp, _, l) = VS.unsafeToForeignPtr v
+#else
+hPutNonBlocking :: Handle -> B.ByteString -> IO Int
+hPutNonBlocking h bs = hPut h bs >> return empty
+#endif
 
 -- | A synonym for @hPut@, for compatibility
 hPutStr :: Handle -> ByteString -> IO ()
@@ -1385,7 +1487,7 @@ hGetContents h = always (hClose h) $ do -- strict, so hClose
     if i < start_size
         then do p' <- reallocBytes p i
                 fp <- newForeignPtr finalizerFree p'
-                return $! Vector p' i fp
+                return $! VS.unsafeFromForeignPtr fp 0 i
         else f p start_size
     where
         always = flip finally
@@ -1397,7 +1499,7 @@ hGetContents h = always (hClose h) $ do -- strict, so hClose
                 then do let i' = s + i
                         p'' <- reallocBytes p' i'
                         fp  <- newForeignPtr finalizerFree p''
-                        return $! Vector p'' i' fp
+                        return $! VS.unsafeFromForeignPtr fp 0 i'
                 else f p' s'
 
 
@@ -1407,10 +1509,13 @@ hGetContents h = always (hClose h) $ do -- strict, so hClose
 
 -- Find from the end of the string using predicate
 findFromEndUntil :: (Word8 -> Bool) -> ByteString -> Int
-findFromEndUntil !f !ps@(Vector p l fp) =
-    if null ps then 0
-    else if f (last ps) then l
-         else findFromEndUntil f (Vector p (l-1) fp)
+findFromEndUntil pred = go
+    where
+      go v | VS.null v              = 0
+           | pred (VS.unsafeLast v) = l
+           | otherwise              = go (VS.unsafeTake (l-1) v)
+           where
+             l = VS.length v
 
 moduleError :: String -> String -> a
 moduleError fun msg = error $ "Data.Vector.Storable.ByteString." ++

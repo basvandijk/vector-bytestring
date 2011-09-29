@@ -1,5 +1,24 @@
-{-# LANGUAGE NoImplicitPrelude, TypeSynonymInstances, BangPatterns #-}
+{-# LANGUAGE NoImplicitPrelude
+           , TypeSynonymInstances
+           , FlexibleInstances
+           , BangPatterns
+  #-}
 
+-- |
+-- Module      : Data.Vector.Storable.ByteString.Internal
+-- License     : BSD-style
+-- Maintainer  : Bas van Dijk <v.dijk.bas@gmail.com>
+-- Stability   : experimental
+--
+-- A module containing semi-public 'ByteString' internals. This exposes the
+-- 'ByteString' representation and low level construction functions. As such
+-- all the functions in this module are unsafe. The API is also not stable.
+--
+-- Where possible application should instead use the functions from the normal
+-- public interface modules, such as "Data.Vector.Storable.ByteString.Unsafe".
+-- Packages that extend the ByteString system at a low level will need to use
+-- this module.
+--
 module Data.Vector.Storable.ByteString.Internal (
 
         -- * The @ByteString@ type and representation
@@ -50,18 +69,16 @@ module Data.Vector.Storable.ByteString.Internal (
 
 -- from base:
 import Control.Exception  ( assert )
-import Control.Monad      ( (>>=), (>>), return )
-import Data.List          ( length )
+import Control.Monad      ( return )
 import Data.Ord           ( (<=), (>=) )
 import Data.Word          ( Word8 )
-import Foreign.ForeignPtr ( ForeignPtr, withForeignPtr, unsafeForeignPtrToPtr )
-import Foreign.Ptr        ( Ptr, plusPtr, minusPtr )
-import Foreign.Storable   ( peek, poke, peekByteOff )
-import Prelude            ( Int, (-), ($), ($!), fromIntegral )
+import Foreign.ForeignPtr ( ForeignPtr, withForeignPtr  )
+import Foreign.Ptr        ( Ptr, plusPtr )
+import Prelude            ( Int, ($), ($!), fromIntegral )
 import System.IO          ( IO )
-import Text.Read          ( Read, readsPrec )
-import Text.Show          ( Show, showsPrec )
-import GHC.IO             ( unsafeDupablePerformIO )
+-- import Text.Read          ( Read, readsPrec )
+-- import Text.Show          ( Show, showsPrec )
+import System.IO.Unsafe   ( unsafeDupablePerformIO )
 
 -- from bytestring:
 import qualified Data.ByteString.Internal as BI
@@ -70,7 +87,10 @@ import qualified Data.ByteString.Internal as BI
 import Control.Monad.Primitive ( unsafeInlineIO )
 
 -- from vector:
-import Data.Vector.Storable.Internal ( Vector(Vector), mallocVector )
+import qualified Data.Vector.Storable as VS
+
+-- from vector-bytestring (this package):
+import ForeignPtr ( mallocVector )
 
 
 --------------------------------------------------------------------------------
@@ -79,27 +99,28 @@ import Data.Vector.Storable.Internal ( Vector(Vector), mallocVector )
 
 -- | A space-efficient representation of a 'Word8' vector, supporting many
 -- efficient operations.  A 'ByteString' contains 8-bit characters only.
-type ByteString = Vector Word8
+type ByteString = VS.Vector Word8
 
 
+{- TODO: Probably not a good idea to add these orphaned instances:
 --------------------------------------------------------------------------------
 -- Show & Read instances
 --------------------------------------------------------------------------------
 
 instance Show ByteString where
     showsPrec p ps r = showsPrec p (unpackWith BI.w2c ps) r
-
 instance Read ByteString where
     readsPrec p str = [ (packWith BI.c2w x, y) | (x, y) <- readsPrec p str ]
 
 -- | /O(n)/ Converts a 'ByteString' to a '[a]', using a conversion function.
 unpackWith :: (Word8 -> a) -> ByteString -> [a]
-unpackWith _ (Vector _ 0 _) = []
-unpackWith k (Vector p l fp) = unsafeInlineIO $ withForeignPtr fp $ \_ ->
-        go p (l - 1) []
+unpackWith k v | l == 0 = []
+               | otherwise = unsafeInlineIO $ VS.unsafeWith v $ \p ->
+                               go p (l - 1) []
     where
-        go !ptr 0  !acc = peek ptr          >>= \e -> return (k e : acc)
-        go !ptr !n !acc = peekByteOff ptr n >>= \e -> go ptr (n-1) (k e : acc)
+      l = VS.length v
+      go !ptr 0  !acc = peek ptr          >>= \e -> return (k e : acc)
+      go !ptr !n !acc = peekByteOff ptr n >>= \e -> go ptr (n-1) (k e : acc)
 {-# INLINE unpackWith #-}
 
 -- | /O(n)/ Convert a '[a]' into a 'ByteString' using some
@@ -111,7 +132,7 @@ packWith k str = unsafeCreate (length str) $ \p -> go p str
         go !p (x:xs) = poke p (k x) >> go (p `plusPtr` 1) xs -- less space than pokeElemOff
 {-# INLINE packWith #-}
 
-
+-}
 --------------------------------------------------------------------------------
 -- * Low level introduction and elimination
 --------------------------------------------------------------------------------
@@ -123,7 +144,7 @@ create l f = do
   fp <- mallocVector l
   withForeignPtr fp $ \p -> do
     f p
-    return $! Vector p l fp
+    return $! VS.unsafeFromForeignPtr fp 0 l
 
 -- | A way of creating ByteStrings outside the IO monad. The @Int@
 -- argument gives the final size of the ByteString. Unlike
@@ -146,7 +167,7 @@ createAndTrim l f = do
   withForeignPtr fp $ \p -> do
     l' <- f p
     if assert (l' <= l) $ l' >= l
-      then return $! Vector p l fp
+      then return $! VS.unsafeFromForeignPtr fp 0 l
       else create l' $ \p' -> BI.memcpy p' p (fromIntegral l')
 {-# INLINE createAndTrim #-}
 
@@ -156,7 +177,7 @@ createAndTrim' l f = do
   withForeignPtr fp $ \p -> do
     (off, l', res) <- f p
     if assert (l' <= l) $ l' >= l
-      then return $! (Vector p l fp, res)
+      then return $! (VS.unsafeFromForeignPtr fp 0 l, res)
       else do v <- create l' $ \p' ->
                      BI.memcpy p' (p `plusPtr` off) (fromIntegral l')
               return $! (v, res)
@@ -175,13 +196,11 @@ fromForeignPtr :: ForeignPtr Word8
                -> Int -- ^ Offset
                -> Int -- ^ Length
                -> ByteString
-fromForeignPtr fp s l = Vector (unsafeForeignPtrToPtr fp `plusPtr` s) l fp
-{-# INLINE fromForeignPtr #-}
+fromForeignPtr = VS.unsafeFromForeignPtr
 
 -- | /O(1)/ Deconstruct a ForeignPtr from a ByteString
 toForeignPtr :: ByteString -> (ForeignPtr Word8, Int, Int) -- ^ (ptr, offset, length)
-toForeignPtr (Vector p l fp) = (fp, p `minusPtr` unsafeForeignPtrToPtr fp, l)
-{-# INLINE toForeignPtr #-}
+toForeignPtr = VS.unsafeToForeignPtr
 
 
 --------------------------------------------------------------------------------

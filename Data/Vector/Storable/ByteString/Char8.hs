@@ -53,172 +53,175 @@ module Data.Vector.Storable.ByteString.Char8 (
         ByteString,             -- abstract, instances: Eq, Ord, Show, Read, Data, Typeable, Monoid
 
         -- * Introducing and eliminating ByteStrings
-        empty,                  -- :: ByteString
-        singleton,              -- :: Char   -> ByteString
-        pack,                   -- :: String -> ByteString
-        unpack,                 -- :: ByteString -> String
+        B.empty,           -- :: ByteString
+        singleton,         -- :: Char   -> ByteString
+        pack,              -- :: String -> ByteString
+        unpack,            -- :: ByteString -> String
 
         -- * Basic interface
-        cons,                   -- :: Char -> ByteString -> ByteString
-        snoc,                   -- :: ByteString -> Char -> ByteString
-        append,                 -- :: ByteString -> ByteString -> ByteString
-        head,                   -- :: ByteString -> Char
-        uncons,                 -- :: ByteString -> Maybe (Char, ByteString)
-        last,                   -- :: ByteString -> Char
-        tail,                   -- :: ByteString -> ByteString
-        init,                   -- :: ByteString -> ByteString
-        null,                   -- :: ByteString -> Bool
-        length,                 -- :: ByteString -> Int
+        cons,              -- :: Char -> ByteString -> ByteString
+        snoc,              -- :: ByteString -> Char -> ByteString
+        B.append,          -- :: ByteString -> ByteString -> ByteString
+        head,              -- :: ByteString -> Char
+        uncons,            -- :: ByteString -> Maybe (Char, ByteString)
+        last,              -- :: ByteString -> Char
+        B.tail,            -- :: ByteString -> ByteString
+        B.init,            -- :: ByteString -> ByteString
+        B.null,            -- :: ByteString -> Bool
+        B.length,          -- :: ByteString -> Int
 
         -- * Transformating ByteStrings
-        map,                    -- :: (Char -> Char) -> ByteString -> ByteString
-        reverse,                -- :: ByteString -> ByteString
-        intersperse,            -- :: Char -> ByteString -> ByteString
-        intercalate,            -- :: ByteString -> [ByteString] -> ByteString
-        transpose,              -- :: [ByteString] -> [ByteString]
+        map,               -- :: (Char -> Char) -> ByteString -> ByteString
+        B.reverse,         -- :: ByteString -> ByteString
+        intersperse,       -- :: Char -> ByteString -> ByteString
+        B.intercalate,     -- :: ByteString -> [ByteString] -> ByteString
+        B.transpose,       -- :: [ByteString] -> [ByteString]
 
         -- * Reducing ByteStrings (folds)
-        foldl,                  -- :: (a -> Char -> a) -> a -> ByteString -> a
-        foldl',                 -- :: (a -> Char -> a) -> a -> ByteString -> a
-        foldl1,                 -- :: (Char -> Char -> Char) -> ByteString -> Char
-        foldl1',                -- :: (Char -> Char -> Char) -> ByteString -> Char
+        foldl,             -- :: (a -> Char -> a) -> a -> ByteString -> a
+        foldl',            -- :: (a -> Char -> a) -> a -> ByteString -> a
+        foldl1,            -- :: (Char -> Char -> Char) -> ByteString -> Char
+        foldl1',           -- :: (Char -> Char -> Char) -> ByteString -> Char
 
-        foldr,                  -- :: (Char -> a -> a) -> a -> ByteString -> a
-        foldr',                 -- :: (Char -> a -> a) -> a -> ByteString -> a
-        foldr1,                 -- :: (Char -> Char -> Char) -> ByteString -> Char
-        foldr1',                -- :: (Char -> Char -> Char) -> ByteString -> Char
+        foldr,             -- :: (Char -> a -> a) -> a -> ByteString -> a
+        foldr',            -- :: (Char -> a -> a) -> a -> ByteString -> a
+        foldr1,            -- :: (Char -> Char -> Char) -> ByteString -> Char
+        foldr1',           -- :: (Char -> Char -> Char) -> ByteString -> Char
 
         -- ** Special folds
-        concat,                 -- :: [ByteString] -> ByteString
-        concatMap,              -- :: (Char -> ByteString) -> ByteString -> ByteString
-        any,                    -- :: (Char -> Bool) -> ByteString -> Bool
-        all,                    -- :: (Char -> Bool) -> ByteString -> Bool
-        maximum,                -- :: ByteString -> Char
-        minimum,                -- :: ByteString -> Char
+        B.concat,          -- :: [ByteString] -> ByteString
+        concatMap,         -- :: (Char -> ByteString) -> ByteString -> ByteString
+        any,               -- :: (Char -> Bool) -> ByteString -> Bool
+        all,               -- :: (Char -> Bool) -> ByteString -> Bool
+        maximum,           -- :: ByteString -> Char
+        minimum,           -- :: ByteString -> Char
 
         -- * Building ByteStrings
         -- ** Scans
-        scanl,                  -- :: (Char -> Char -> Char) -> Char -> ByteString -> ByteString
-        scanl1,                 -- :: (Char -> Char -> Char) -> ByteString -> ByteString
-        scanr,                  -- :: (Char -> Char -> Char) -> Char -> ByteString -> ByteString
-        scanr1,                 -- :: (Char -> Char -> Char) -> ByteString -> ByteString
+        scanl,             -- :: (Char -> Char -> Char) -> Char -> ByteString -> ByteString
+        scanl1,            -- :: (Char -> Char -> Char) -> ByteString -> ByteString
+        scanr,             -- :: (Char -> Char -> Char) -> Char -> ByteString -> ByteString
+        scanr1,            -- :: (Char -> Char -> Char) -> ByteString -> ByteString
 
         -- ** Accumulating maps
-        mapAccumL,              -- :: (acc -> Char -> (acc, Char)) -> acc -> ByteString -> (acc, ByteString)
-        mapAccumR,              -- :: (acc -> Char -> (acc, Char)) -> acc -> ByteString -> (acc, ByteString)
+        mapAccumL,         -- :: (acc -> Char -> (acc, Char)) -> acc -> ByteString -> (acc, ByteString)
+        mapAccumR,         -- :: (acc -> Char -> (acc, Char)) -> acc -> ByteString -> (acc, ByteString)
 
         -- ** Generating and unfolding ByteStrings
-        replicate,              -- :: Int -> Char -> ByteString
-        unfoldr,                -- :: (a -> Maybe (Char, a)) -> a -> ByteString
-        unfoldrN,               -- :: Int -> (a -> Maybe (Char, a)) -> a -> (ByteString, Maybe a)
+        replicate,         -- :: Int -> Char -> ByteString
+        unfoldr,           -- :: (a -> Maybe (Char, a)) -> a -> ByteString
+        unfoldrN,          -- :: Int -> (a -> Maybe (Char, a)) -> a -> (ByteString, Maybe a)
 
         -- * Substrings
 
         -- ** Breaking strings
-        take,                   -- :: Int -> ByteString -> ByteString
-        drop,                   -- :: Int -> ByteString -> ByteString
-        splitAt,                -- :: Int -> ByteString -> (ByteString, ByteString)
-        takeWhile,              -- :: (Char -> Bool) -> ByteString -> ByteString
-        dropWhile,              -- :: (Char -> Bool) -> ByteString -> ByteString
-        span,                   -- :: (Char -> Bool) -> ByteString -> (ByteString, ByteString)
-        spanEnd,                -- :: (Char -> Bool) -> ByteString -> (ByteString, ByteString)
-        break,                  -- :: (Char -> Bool) -> ByteString -> (ByteString, ByteString)
-        breakEnd,               -- :: (Char -> Bool) -> ByteString -> (ByteString, ByteString)
-        group,                  -- :: ByteString -> [ByteString]
-        groupBy,                -- :: (Char -> Char -> Bool) -> ByteString -> [ByteString]
-        inits,                  -- :: ByteString -> [ByteString]
-        tails,                  -- :: ByteString -> [ByteString]
+        B.take,            -- :: Int -> ByteString -> ByteString
+        B.drop,            -- :: Int -> ByteString -> ByteString
+        B.splitAt,         -- :: Int -> ByteString -> (ByteString, ByteString)
+        takeWhile,         -- :: (Char -> Bool) -> ByteString -> ByteString
+        dropWhile,         -- :: (Char -> Bool) -> ByteString -> ByteString
+        span,              -- :: (Char -> Bool) -> ByteString -> (ByteString, ByteString)
+        spanEnd,           -- :: (Char -> Bool) -> ByteString -> (ByteString, ByteString)
+        break,             -- :: (Char -> Bool) -> ByteString -> (ByteString, ByteString)
+        breakEnd,          -- :: (Char -> Bool) -> ByteString -> (ByteString, ByteString)
+        B.group,           -- :: ByteString -> [ByteString]
+        groupBy,           -- :: (Char -> Char -> Bool) -> ByteString -> [ByteString]
+        B.inits,           -- :: ByteString -> [ByteString]
+        B.tails,           -- :: ByteString -> [ByteString]
 
         -- ** Breaking into many substrings
-        split,                  -- :: Char -> ByteString -> [ByteString]
-        splitWith,              -- :: (Char -> Bool) -> ByteString -> [ByteString]
+        split,             -- :: Char -> ByteString -> [ByteString]
+        splitWith,         -- :: (Char -> Bool) -> ByteString -> [ByteString]
 
         -- ** Breaking into lines and words
-        lines,                  -- :: ByteString -> [ByteString]
-        words,                  -- :: ByteString -> [ByteString]
-        unlines,                -- :: [ByteString] -> ByteString
-        unwords,                -- :: ByteString -> [ByteString]
+        lines,             -- :: ByteString -> [ByteString]
+        words,             -- :: ByteString -> [ByteString]
+        unlines,           -- :: [ByteString] -> ByteString
+        unwords,           -- :: ByteString -> [ByteString]
 
         -- * Predicates
-        isPrefixOf,             -- :: ByteString -> ByteString -> Bool
-        isSuffixOf,             -- :: ByteString -> ByteString -> Bool
-        isInfixOf,              -- :: ByteString -> ByteString -> Bool
+        B.isPrefixOf,      -- :: ByteString -> ByteString -> Bool
+        B.isSuffixOf,      -- :: ByteString -> ByteString -> Bool
+        B.isInfixOf,       -- :: ByteString -> ByteString -> Bool
 
         -- ** Search for arbitrary substrings
-        breakSubstring,         -- :: ByteString -> ByteString -> (ByteString,ByteString)
-        findSubstring,          -- :: ByteString -> ByteString -> Maybe Int
-        findSubstrings,         -- :: ByteString -> ByteString -> [Int]
+        B.breakSubstring,  -- :: ByteString -> ByteString -> (ByteString,ByteString)
+        B.findSubstring,   -- :: ByteString -> ByteString -> Maybe Int
+        B.findSubstrings,  -- :: ByteString -> ByteString -> [Int]
 
         -- * Searching ByteStrings
 
         -- ** Searching by equality
-        elem,                   -- :: Char -> ByteString -> Bool
-        notElem,                -- :: Char -> ByteString -> Bool
+        elem,              -- :: Char -> ByteString -> Bool
+        notElem,           -- :: Char -> ByteString -> Bool
 
         -- ** Searching with a predicate
-        find,                   -- :: (Char -> Bool) -> ByteString -> Maybe Char
-        filter,                 -- :: (Char -> Bool) -> ByteString -> ByteString
---      partition               -- :: (Char -> Bool) -> ByteString -> (ByteString, ByteString)
+        find,              -- :: (Char -> Bool) -> ByteString -> Maybe Char
+        filter,            -- :: (Char -> Bool) -> ByteString -> ByteString
 
         -- * Indexing ByteStrings
-        index,                  -- :: ByteString -> Int -> Char
-        elemIndex,              -- :: Char -> ByteString -> Maybe Int
-        elemIndices,            -- :: Char -> ByteString -> [Int]
-        elemIndexEnd,           -- :: Char -> ByteString -> Maybe Int
-        findIndex,              -- :: (Char -> Bool) -> ByteString -> Maybe Int
-        findIndices,            -- :: (Char -> Bool) -> ByteString -> [Int]
-        count,                  -- :: Char -> ByteString -> Int
+        index,             -- :: ByteString -> Int -> Char
+        elemIndex,         -- :: Char -> ByteString -> Maybe Int
+        elemIndices,       -- :: Char -> ByteString -> [Int]
+        elemIndexEnd,      -- :: Char -> ByteString -> Maybe Int
+        findIndex,         -- :: (Char -> Bool) -> ByteString -> Maybe Int
+        findIndices,       -- :: (Char -> Bool) -> ByteString -> [Int]
+        count,             -- :: Char -> ByteString -> Int
 
         -- * Zipping and unzipping ByteStrings
-        zip,                    -- :: ByteString -> ByteString -> [(Char,Char)]
-        zipWith,                -- :: (Char -> Char -> c) -> ByteString -> ByteString -> [c]
-        unzip,                  -- :: [(Char,Char)] -> (ByteString,ByteString)
+        zip,               -- :: ByteString -> ByteString -> [(Char,Char)]
+        zipWith,           -- :: (Char -> Char -> c) -> ByteString -> ByteString -> [c]
+        unzip,             -- :: [(Char,Char)] -> (ByteString,ByteString)
 
         -- * Ordered ByteStrings
-        sort,                   -- :: ByteString -> ByteString
+        B.sort,            -- :: ByteString -> ByteString
 
         -- * Reading from ByteStrings
-        readInt,                -- :: ByteString -> Maybe (Int, ByteString)
-        readInteger,            -- :: ByteString -> Maybe (Integer, ByteString)
+        readInt,           -- :: ByteString -> Maybe (Int, ByteString)
+        readInteger,       -- :: ByteString -> Maybe (Integer, ByteString)
 
         -- * Low level CString conversions
 
         -- ** Copying ByteStrings
-        copy,                   -- :: ByteString -> ByteString
+        B.copy,            -- :: ByteString -> ByteString
 
         -- ** Packing CStrings and pointers
-        packCString,            -- :: CString -> IO ByteString
-        packCStringLen,         -- :: CStringLen -> IO ByteString
+        B.packCString,     -- :: CString -> IO ByteString
+        B.packCStringLen,  -- :: CStringLen -> IO ByteString
 
         -- ** Using ByteStrings as CStrings
-        useAsCString,           -- :: ByteString -> (CString    -> IO a) -> IO a
-        useAsCStringLen,        -- :: ByteString -> (CStringLen -> IO a) -> IO a
+        B.useAsCString,    -- :: ByteString -> (CString    -> IO a) -> IO a
+        B.useAsCStringLen, -- :: ByteString -> (CStringLen -> IO a) -> IO a
 
         -- * I\/O with ByteStrings
 
         -- ** Standard input and output
-        getLine,                -- :: IO ByteString
-        getContents,            -- :: IO ByteString
-        putStr,                 -- :: ByteString -> IO ()
-        putStrLn,               -- :: ByteString -> IO ()
-        interact,               -- :: (ByteString -> ByteString) -> IO ()
+        B.getLine,         -- :: IO ByteString
+        B.getContents,     -- :: IO ByteString
+        B.putStr,          -- :: ByteString -> IO ()
+        putStrLn,          -- :: ByteString -> IO ()
+        B.interact,        -- :: (ByteString -> ByteString) -> IO ()
 
         -- ** Files
-        readFile,               -- :: FilePath -> IO ByteString
-        writeFile,              -- :: FilePath -> ByteString -> IO ()
-        appendFile,             -- :: FilePath -> ByteString -> IO ()
+        readFile,          -- :: FilePath -> IO ByteString
+        writeFile,         -- :: FilePath -> ByteString -> IO ()
+        appendFile,        -- :: FilePath -> ByteString -> IO ()
 
         -- ** I\/O with Handles
-        hGetLine,               -- :: Handle -> IO ByteString
-        hGetContents,           -- :: Handle -> IO ByteString
-        hGet,                   -- :: Handle -> Int -> IO ByteString
-        hGetNonBlocking,        -- :: Handle -> Int -> IO ByteString
-        hPut,                   -- :: Handle -> ByteString -> IO ()
-        hPutNonBlocking,        -- :: Handle -> ByteString -> IO ByteString
-        hPutStr,                -- :: Handle -> ByteString -> IO ()
-        hPutStrLn,              -- :: Handle -> ByteString -> IO ()
+        B.hGetLine,        -- :: Handle -> IO ByteString
+        B.hGetContents,    -- :: Handle -> IO ByteString
+        B.hGet,            -- :: Handle -> Int -> IO ByteString
+        B.hGetNonBlocking, -- :: Handle -> Int -> IO ByteString
+        B.hPut,            -- :: Handle -> ByteString -> IO ()
+        B.hPutNonBlocking, -- :: Handle -> ByteString -> IO ByteString
+        B.hPutStr,         -- :: Handle -> ByteString -> IO ()
+        hPutStrLn,         -- :: Handle -> ByteString -> IO ()
 
   ) where
+
+--------------------------------------------------------------------------------
+-- Imports
+--------------------------------------------------------------------------------
 
 -- from base:
 import Data.Function      ( (.), ($) )
@@ -272,23 +275,11 @@ import Control.Monad.Primitive ( unsafeInlineIO )
 import Data.Vector.Storable.ByteString.Internal ( c2w, w2c, isSpaceWord8 )
 
 import qualified Data.Vector.Storable.ByteString          as B
-import qualified Data.Vector.Storable.ByteString.Internal as B
-import qualified Data.Vector.Storable.ByteString.Unsafe   as B
+import qualified Data.Vector.Storable.ByteString.Internal as BI ( unsafeCreate )
+import qualified Data.Vector.Storable.ByteString.Unsafe   as BU
+    ( unsafeHead, unsafeTail, unsafeTake, unsafeDrop, unsafePackAddress )
 
-import Data.Vector.Storable.ByteString
-    ( ByteString
-    , empty,null,length,tail,init,append
-    , inits,tails,reverse,transpose
-    , concat,take,drop,splitAt,intercalate
-    , sort,isPrefixOf,isSuffixOf,isInfixOf
-    , findSubstring,findSubstrings,breakSubstring,copy,group
-
-    , getLine, getContents, putStr, interact
-    , hGetContents, hGet, hPut, hPutStr
-    , hGetLine, hGetNonBlocking, hPutNonBlocking
-    , packCString,packCStringLen
-    , useAsCString,useAsCStringLen
-    )
+import Data.Vector.Storable.ByteString ( ByteString )
 
 
 ------------------------------------------------------------------------
@@ -315,7 +306,7 @@ pack str = B.unsafeCreate (L.length str) $ \p -> go p str
 
 #else /* hack away */
 
-pack str = B.unsafeCreate (L.length str) $ \(Ptr p) -> stToIO (go p str)
+pack str = BI.unsafeCreate (L.length str) $ \(Ptr p) -> stToIO (go p str)
   where
     go :: Addr# -> [Char] -> ST a ()
     go _ []        = return ()
@@ -328,7 +319,7 @@ pack str = B.unsafeCreate (L.length str) $ \(Ptr p) -> stToIO (go p str)
 
 {-# RULES
 "ByteString pack/packAddress" forall s .
-   pack (unpackCString# s) = unsafeInlineIO (B.unsafePackAddress s)
+   pack (unpackCString# s) = unsafeInlineIO (BU.unsafePackAddress s)
  #-}
 
 #endif
@@ -574,8 +565,8 @@ break f = B.break (f . w2c)
 --
 breakChar :: Char -> ByteString -> (ByteString, ByteString)
 breakChar c p = case elemIndex c p of
-    Nothing -> (p, empty)
-    Just n  -> (B.unsafeTake n p, B.unsafeDrop n p)
+    Nothing -> (p, B.empty)
+    Just n  -> (BU.unsafeTake n p, BU.unsafeDrop n p)
 {-# INLINE breakChar #-}
 
 -- | 'span' @p xs@ breaks the ByteString into two segments. It is
@@ -729,7 +720,7 @@ zip :: ByteString -> ByteString -> [(Char,Char)]
 zip ps qs
     | B.null ps || B.null qs = []
     | otherwise = (unsafeHead ps, unsafeHead qs)
-                : zip (B.unsafeTail ps) (B.unsafeTail qs)
+                : zip (BU.unsafeTail ps) (BU.unsafeTail qs)
 
 -- | 'zipWith' generalises 'zip' by zipping with the function given as
 -- the first argument, instead of a tupling function.  For example,
@@ -749,7 +740,7 @@ unzip ls = (pack (L.map fst ls), pack (L.map snd ls))
 -- there is an obligation on the programmer to provide a proof that the
 -- ByteString is non-empty.
 unsafeHead :: ByteString -> Char
-unsafeHead  = w2c . B.unsafeHead
+unsafeHead  = w2c . BU.unsafeHead
 {-# INLINE unsafeHead #-}
 
 -- ---------------------------------------------------------------------
@@ -770,8 +761,8 @@ breakSpace v = unsafeInlineIO $ withForeignPtr fp $ \p -> do
     i <- firstspace p 0 l
     let vec = VS.unsafeFromForeignPtr fp
     return $! case () of {_
-        | i == 0    -> (empty,   vec 0 l)
-        | i == l    -> (vec 0 l, empty)
+        | i == 0    -> (B.empty,   vec 0 l)
+        | i == l    -> (vec 0 l, B.empty)
         | otherwise -> (vec 0 i, vec i (l-i))
     }
     where
@@ -797,7 +788,7 @@ dropSpace :: ByteString -> ByteString
 dropSpace v = unsafeInlineIO $ withForeignPtr fp $ \p -> do
     i <- firstnonspace p 0 l
     return $! if i == l
-              then empty
+              then B.empty
               else VS.unsafeFromForeignPtr fp i (l-i)
     where
       (fp, _, l) = VS.unsafeToForeignPtr v
@@ -813,20 +804,19 @@ firstnonspace !ptr !n !m
 
 -- | 'lines' breaks a ByteString up into a list of ByteStrings at
 -- newline Chars. The resulting strings do not contain newlines.
---
 lines :: ByteString -> [ByteString]
 lines ps
-    | null ps = []
+    | B.null ps = []
     | otherwise = case search ps of
              Nothing -> [ps]
-             Just n  -> take n ps : lines (drop (n+1) ps)
+             Just n  -> BU.unsafeTake n ps : lines (BU.unsafeDrop (n+1) ps)
     where search = elemIndex '\n'
 
 -- | 'unlines' is an inverse operation to 'lines'.  It joins lines,
 -- after appending a terminating newline to each.
 unlines :: [ByteString] -> ByteString
-unlines [] = empty
-unlines ss = (concat $ L.intersperse nl ss) `append` nl -- half as much space
+unlines [] = B.empty
+unlines ss = B.concat (L.intersperse nl ss) `B.append` nl -- half as much space
     where nl = singleton '\n'
 
 -- | 'words' breaks a ByteString up into a list of words, which
@@ -837,7 +827,7 @@ words = L.filter (not . B.null) . B.splitWith isSpaceWord8
 
 -- | The 'unwords' function is analogous to the 'unlines' function, on words.
 unwords :: [ByteString] -> ByteString
-unwords = intercalate (singleton ' ')
+unwords = B.intercalate (singleton ' ')
 {-# INLINE unwords #-}
 
 -- ---------------------------------------------------------------------
@@ -848,22 +838,22 @@ unwords = intercalate (singleton ' ')
 -- it just returns the int read, and the rest of the string.
 readInt :: ByteString -> Maybe (Int, ByteString)
 readInt as
-    | null as   = Nothing
+    | B.null as = Nothing
     | otherwise =
         case unsafeHead as of
-            '-' -> loop True  0 0 (B.unsafeTail as)
-            '+' -> loop False 0 0 (B.unsafeTail as)
+            '-' -> loop True  0 0 (BU.unsafeTail as)
+            '+' -> loop False 0 0 (BU.unsafeTail as)
             _   -> loop False 0 0 as
 
     where loop :: Bool -> Int -> Int -> ByteString -> Maybe (Int, ByteString)
           loop !neg !i !n !ps
-              | null ps   = end neg i n ps
+              | B.null ps = end neg i n ps
               | otherwise =
-                  case B.unsafeHead ps of
+                  case BU.unsafeHead ps of
                     w | w >= 0x30
                      && w <= 0x39 -> loop neg (i+1)
                                           (n * 10 + (fromIntegral w - 0x30))
-                                          (B.unsafeTail ps)
+                                          (BU.unsafeTail ps)
                       | otherwise -> end neg i n ps
 
           end _    0 _ _  = Nothing
@@ -875,33 +865,33 @@ readInt as
 -- otherwise it just returns the int read, and the rest of the string.
 readInteger :: ByteString -> Maybe (Integer, ByteString)
 readInteger as
-    | null as   = Nothing
+    | B.null as = Nothing
     | otherwise =
         case unsafeHead as of
-            '-' -> first (B.unsafeTail as) >>= \(n, bs) -> return (-n, bs)
-            '+' -> first (B.unsafeTail as)
+            '-' -> first (BU.unsafeTail as) >>= \(n, bs) -> return (-n, bs)
+            '+' -> first (BU.unsafeTail as)
             _   -> first as
 
-    where first ps | null ps   = Nothing
+    where first ps | B.null ps = Nothing
                    | otherwise =
-                       case B.unsafeHead ps of
+                       case BU.unsafeHead ps of
                         w | w >= 0x30 && w <= 0x39 -> Just $
-                            loop 1 (fromIntegral w - 0x30) [] (B.unsafeTail ps)
+                            loop 1 (fromIntegral w - 0x30) [] (BU.unsafeTail ps)
                           | otherwise              -> Nothing
 
           loop :: Int -> Int -> [Integer]
                -> ByteString -> (Integer, ByteString)
           loop !d !acc !ns !ps
-              | null ps   = combine d acc ns empty
+              | B.null ps = combine d acc ns B.empty
               | otherwise =
-                  case B.unsafeHead ps of
+                  case BU.unsafeHead ps of
                    w | w >= 0x30 && w <= 0x39 ->
                        if d == 9 then loop 1 (fromIntegral w - 0x30)
                                            (toInteger acc : ns)
-                                           (B.unsafeTail ps)
+                                           (BU.unsafeTail ps)
                                  else loop (d+1)
                                            (10*acc + (fromIntegral w - 0x30))
-                                           ns (B.unsafeTail ps)
+                                           ns (BU.unsafeTail ps)
                      | otherwise -> combine d acc ns ps
 
           combine _ acc [] ps = (toInteger acc, ps)
@@ -923,24 +913,24 @@ readInteger as
 -- reading it using hGet.
 readFile :: FilePath -> IO ByteString
 readFile f = bracket (openFile f ReadMode) hClose
-    (\h -> hFileSize h >>= hGet h . fromIntegral)
+    (\h -> hFileSize h >>= B.hGet h . fromIntegral)
 
 -- | Write a 'ByteString' to a file.
 writeFile :: FilePath -> ByteString -> IO ()
 writeFile f txt = bracket (openFile f WriteMode) hClose
-    (\h -> hPut h txt)
+    (\h -> B.hPut h txt)
 
 -- | Append a 'ByteString' to a file.
 appendFile :: FilePath -> ByteString -> IO ()
 appendFile f txt = bracket (openFile f AppendMode) hClose
-    (\h -> hPut h txt)
+    (\h -> B.hPut h txt)
 
 
 -- | Write a ByteString to a handle, appending a newline byte
 hPutStrLn :: Handle -> ByteString -> IO ()
 hPutStrLn h ps
-    | length ps < 1024 = hPut h (ps `B.snoc` 0x0a)
-    | otherwise        = hPut h ps >> hPut h (B.singleton (0x0a)) -- don't copy
+    | B.length ps < 1024 = B.hPut h (ps `B.snoc` 0x0a)
+    | otherwise          = B.hPut h ps >> B.hPut h (B.singleton (0x0a)) -- don't copy
 
 -- | Write a ByteString to stdout, appending a newline byte
 putStrLn :: ByteString -> IO ()

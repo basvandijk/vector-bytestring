@@ -785,7 +785,7 @@ findIndexOrEnd k v = unsafeInlineIO $  withForeignPtr fp $ \p ->
 
 -- | /O(n)/ Return all initial segments of the given 'ByteString', shortest first.
 inits :: ByteString -> [ByteString]
-inits v = [VS.drop s v | s <- [0..VS.length v]]
+inits v = [VS.unsafeTake s v | s <- [0..VS.length v]]
 
 -- | /O(n)/ Return all final segments of the given 'ByteString', longest first.
 tails :: ByteString -> [ByteString]

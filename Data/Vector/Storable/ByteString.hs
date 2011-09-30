@@ -2,7 +2,6 @@
            , NoImplicitPrelude
            , BangPatterns
            , NamedFieldPuns
-           , RecordWildCards
   #-}
 
 {-# OPTIONS_GHC -fno-warn-name-shadowing #-}
@@ -217,46 +216,49 @@ module Data.Vector.Storable.ByteString (
 --------------------------------------------------------------------------------
 
 -- from base:
-import Control.Exception       ( bracket, finally )
-import Control.Monad           ( (>>=), (=<<), (>>), return, void, when )
-import Data.Bool               ( Bool(False, True), not, otherwise, (||) )
-import Data.Char               ( ord )
-import Data.Eq                 ( (==), (/=) )
-import Data.Function           ( (.), flip )
-import Data.Functor            ( fmap )
-import Data.IORef              ( readIORef, writeIORef )
-import Data.Ord                ( min, (<), (>), (<=), (>=) )
-import Data.Maybe              ( Maybe(Nothing, Just), isJust, listToMaybe )
-import Data.Tuple              ( fst, snd )
-import Data.Word               ( Word8 )
-import Foreign.C.String        ( CString, CStringLen )
-import Foreign.C.Types         ( CSize )
-import Foreign.ForeignPtr      ( newForeignPtr, withForeignPtr )
-import Foreign.Marshal.Alloc   ( allocaBytes, mallocBytes
-                               , reallocBytes, finalizerFree
-                               )
-import Foreign.Marshal.Array   ( allocaArray )
-import Foreign.Marshal.Utils   ( copyBytes )
-import Foreign.Ptr             ( Ptr, nullPtr, plusPtr, minusPtr, castPtr )
-import Foreign.Storable        ( peek, poke
-                               , peekElemOff, pokeElemOff
-                               , peekByteOff, pokeByteOff
-                               , sizeOf
-                               )
-import System.IO               ( IO, FilePath, Handle
-                               , IOMode(ReadMode, WriteMode, AppendMode)
-                               , stdin, stdout
-                               , hGetBuf, hGetBufSome, hGetBufNonBlocking
-                               , hPutBuf, hPutBufNonBlocking, hFileSize
-                               , openBinaryFile, hClose
-                               )
-import System.IO.Unsafe        ( unsafePerformIO )
-import System.IO.Error         ( ioError, mkIOError, illegalOperationErrorType )
-import Text.Show               ( show, showsPrec )
-import Prelude                 ( (+),(-),(*), ($), ($!)
-                               , Int, fromIntegral, String
-                               , error, undefined, seq
-                               )
+import Control.Exception     ( finally )
+import Control.Monad         ( (>>=), (=<<), (>>), return, void, when )
+import Data.Bool             ( Bool(False, True), not, otherwise, (||) )
+import Data.Char             ( ord )
+import Data.Eq               ( (==), (/=) )
+import Data.Function         ( (.), flip )
+import Data.Functor          ( fmap )
+import Data.IORef            ( readIORef, writeIORef )
+import Data.Maybe            ( Maybe(Nothing, Just), isJust, listToMaybe )
+import Data.Ord              ( min, (<), (>), (<=), (>=) )
+import Data.Tuple            ( fst, snd )
+import Data.Word             ( Word8 )
+import Foreign.C.String      ( CString, CStringLen )
+import Foreign.C.Types       ( CSize )
+import Foreign.ForeignPtr    ( newForeignPtr, withForeignPtr )
+import Foreign.Marshal.Alloc ( allocaBytes, mallocBytes
+                             , reallocBytes, finalizerFree
+                             )
+import Foreign.Marshal.Array ( allocaArray )
+import Foreign.Marshal.Utils ( copyBytes )
+import Foreign.Ptr           ( nullPtr, plusPtr, minusPtr, castPtr )
+import Foreign.Storable      ( peek, poke
+                             , peekElemOff, pokeElemOff
+                             , peekByteOff, pokeByteOff
+                             , sizeOf
+                             )
+import Prelude               ( (+),(-),(*), ($), ($!)
+                             , Int, fromIntegral, String, error, undefined
+                             )
+import System.IO             ( IO, FilePath, Handle
+                             , IOMode(ReadMode, WriteMode, AppendMode)
+                             , stdin, stdout
+                             , hGetBuf, hGetBufSome, hGetBufNonBlocking
+                             , hPutBuf, hPutBufNonBlocking, hFileSize
+                             , withBinaryFile, hClose
+                             )
+import System.IO.Unsafe      ( unsafePerformIO )
+import System.IO.Error       ( ioError, mkIOError, illegalOperationErrorType )
+import Text.Show             ( show, showsPrec )
+
+import qualified Data.List as List ( intersperse, transpose, map, reverse )
+import           Data.List         ( (++) )
+
 import GHC.IO.Handle.Internals ( wantReadableHandle_, flushCharReadBuffer
                                , ioe_EOF
                                )
@@ -265,9 +267,6 @@ import GHC.IO.Buffer           ( RawBuffer, Buffer(Buffer), bufRaw, bufL, bufR
                                , withRawBuffer, isEmptyBuffer, readWord8Buf
                                )
 import GHC.IO.BufferedIO as Buffered ( fillReadBuffer )
-
-import qualified Data.List as List ( intersperse, transpose, map, reverse )
-import           Data.List         ( (++) )
 
 -- from primitive:
 import Control.Monad.Primitive ( unsafeInlineIO )
@@ -278,14 +277,9 @@ import qualified Data.Vector.Storable as VS
 -- from vector-bytestring (this package):
 import Data.Vector.Storable.ByteString.Internal
     ( ByteString
-    , create, unsafeCreate
-    , createAndTrim, createAndTrim'
+    , create, unsafeCreate, createAndTrim, createAndTrim'
     , memcpy, memset, memchr, memcmp
     , c_strlen, c_count, c_intersperse
-    )
-import Data.Vector.Storable.ByteString.Unsafe
-    ( unsafeHead, unsafeTail
-    , unsafeTake, unsafeDrop
     )
 import ForeignPtr ( mallocVector )
 
@@ -346,10 +340,8 @@ tail = VS.tail
 {-# INLINE uncons #-}
 uncons :: ByteString -> Maybe (Word8, ByteString)
 uncons v
-    | l <= 0    = Nothing
-    | otherwise = Just (VS.unsafeHead v, VS.unsafeTail v)
-    where
-      l = VS.length v
+    | VS.length v == 0 = Nothing
+    | otherwise        = Just (VS.unsafeHead v, VS.unsafeTail v)
 
 -- | /O(1)/ Extract the last element of a ByteString, which must be finite and non-empty.
 -- An exception will be thrown in the case of an empty ByteString.
@@ -390,7 +382,7 @@ reverse = VS.reverse
 intersperse :: Word8 -> ByteString -> ByteString
 intersperse c v
     | l < 2     = v
-    | otherwise = unsafeCreate (2*l-1) $ \p' ->  withForeignPtr fp $ \p ->
+    | otherwise = unsafeCreate (2*l-1) $ \p' -> withForeignPtr fp $ \p ->
                     c_intersperse p' p (fromIntegral l) c
     where
       (fp, _, l) = VS.unsafeToForeignPtr v
@@ -400,7 +392,7 @@ intersperse c v
 -- argument between each element of the list.
 {-# INLINE [1] intercalate #-}
 intercalate :: ByteString -> [ByteString] -> ByteString
-intercalate s = concat . List.intersperse s
+intercalate s = VS.concat . List.intersperse s
 
 {-# RULES
 "ByteString specialise intercalate c -> intercalateByte" forall c s1 s2 .
@@ -425,7 +417,9 @@ intercalateWithByte c v1 v2 =
 -- | The 'transpose' function transposes the rows and columns of its
 -- 'ByteString' argument.
 transpose :: [ByteString] -> [ByteString]
-transpose ps = List.map VS.fromList (List.transpose (List.map VS.toList ps))
+transpose = List.map VS.fromList
+          . List.transpose
+          . List.map VS.toList
 
 
 --------------------------------------------------------------------------------
@@ -531,8 +525,9 @@ scanr1 = VS.scanr1
 -- 'foldl'; it applies a function to each element of a ByteString,
 -- passing an accumulating parameter from left to right, and returning a
 -- final value of this accumulator together with the new list.
-mapAccumL :: (acc -> Word8 -> (acc, Word8)) -> acc -> ByteString -> (acc, ByteString)
-mapAccumL f acc v = unsafeInlineIO $  withForeignPtr fp $ \p -> do
+mapAccumL :: (acc -> Word8 -> (acc, Word8))
+          -> acc -> ByteString -> (acc, ByteString)
+mapAccumL f acc v = unsafeInlineIO $ withForeignPtr fp $ \p -> do
     fp' <- mallocVector l
     withForeignPtr fp' $ \p' -> do
 
@@ -554,8 +549,9 @@ mapAccumL f acc v = unsafeInlineIO $  withForeignPtr fp $ \p -> do
 -- 'foldr'; it applies a function to each element of a ByteString,
 -- passing an accumulating parameter from right to left, and returning a
 -- final value of this accumulator together with the new ByteString.
-mapAccumR :: (acc -> Word8 -> (acc, Word8)) -> acc -> ByteString -> (acc, ByteString)
-mapAccumR f acc v = unsafeInlineIO $  withForeignPtr fp $ \p -> do
+mapAccumR :: (acc -> Word8 -> (acc, Word8))
+          -> acc -> ByteString -> (acc, ByteString)
+mapAccumR f acc v = unsafeInlineIO $ withForeignPtr fp $ \p -> do
     fp' <- mallocVector l
     withForeignPtr fp' $ \p' -> do
 
@@ -586,7 +582,7 @@ mapAccumR f acc v = unsafeInlineIO $  withForeignPtr fp $ \p -> do
 -- TODO: Should I use VS.replicate here?
 replicate :: Int -> Word8 -> ByteString
 replicate w c
-    | w <= 0    = empty
+    | w <= 0    = VS.empty
     | otherwise = unsafeCreate w $ \p ->
                     void $ memset p c (fromIntegral w)
 
@@ -617,7 +613,7 @@ unfoldr = VS.unfoldr
 -- /Note: this function has a different type than @Data.Vector.Storable.'VS.unfoldrN'@!/
 unfoldrN :: Int -> (a -> Maybe (Word8, a)) -> a -> (ByteString, Maybe a)
 unfoldrN i f x0
-    | i < 0     = (empty, Just x0)
+    | i < 0     = (VS.empty, Just x0)
     | otherwise = unsafePerformIO $ createAndTrim' i $ \p -> go p x0 0
   where go !p !x !n =
           case f x of
@@ -664,6 +660,7 @@ dropWhile = VS.dropWhile
 -- equivalent to @('takeWhile' p xs, 'dropWhile' p xs)@
 span :: (Word8 -> Bool) -> ByteString -> (ByteString, ByteString)
 span = VS.span
+{-# INLINE [1] span #-}
 
 -- | 'spanByte' breaks its ByteString argument at the first
 -- occurence of a byte other than its argument. It is more efficient
@@ -672,15 +669,16 @@ span = VS.span
 -- > span  (=='c') "abcd" == spanByte 'c' "abcd"
 --
 spanByte :: Word8 -> ByteString -> (ByteString, ByteString)
-spanByte c v = unsafeInlineIO $  withForeignPtr fp $ \p ->
-    go p 0
-  where
-    (fp, _, l) = VS.unsafeToForeignPtr v
-    go !p !i | i >= l    = return (v, empty)
-             | otherwise = do c' <- peekByteOff p i
-                              if c /= c'
-                                then return (unsafeTake i v, unsafeDrop i v)
-                                else go p (i+1)
+spanByte c v = unsafeInlineIO $ withForeignPtr fp $ \p ->
+  let go !i | i >= l    = return (v, VS.empty)
+            | otherwise = do
+                c' <- peekByteOff p i
+                if c /= c'
+                  then return (VS.unsafeTake i v, VS.unsafeDrop i v)
+                  else go (i+1)
+  in go 0
+      where
+        (fp, _, l) = VS.unsafeToForeignPtr v
 {-# INLINE spanByte #-}
 
 -- This RULE LHS is not allowed by ghc-6.4
@@ -703,7 +701,7 @@ spanByte c v = unsafeInlineIO $  withForeignPtr fp $ \p ->
 -- > let (x,y) = span (not.isSpace) (reverse ps) in (reverse y, reverse x)
 --
 spanEnd :: (Word8 -> Bool) -> ByteString -> (ByteString, ByteString)
-spanEnd p ps = splitAt (findFromEndUntil (not.p) ps) ps
+spanEnd p ps = VS.splitAt (findFromEndUntil (not . p) ps) ps
 
 -- | 'break' @p@ is equivalent to @'span' ('not' . p)@.
 --
@@ -732,16 +730,16 @@ break = VS.break
 -- > break (=='c') "abcd" == breakByte 'c' "abcd"
 --
 breakByte :: Word8 -> ByteString -> (ByteString, ByteString)
-breakByte c p = case elemIndex c p of
-    Nothing -> (p, empty)
-    Just n  -> (unsafeTake n p, unsafeDrop n p)
+breakByte c p = case VS.elemIndex c p of
+    Nothing -> (p, VS.empty)
+    Just n  -> (VS.unsafeTake n p, VS.unsafeDrop n p)
 {-# INLINE breakByte #-}
 
 -- | 'breakEnd' behaves like 'break' but from the end of the 'ByteString'
 --
 -- breakEnd p == spanEnd (not.p)
 breakEnd :: (Word8 -> Bool) -> ByteString -> (ByteString, ByteString)
-breakEnd  p ps = splitAt (findFromEndUntil p ps) ps
+breakEnd p ps = VS.splitAt (findFromEndUntil p ps) ps
 
 -- | The 'group' function takes a ByteString and returns a list of
 -- ByteStrings such that the concatenation of the result is equal to the
@@ -755,18 +753,18 @@ breakEnd  p ps = splitAt (findFromEndUntil p ps) ps
 -- /groupBy (==)/
 group :: ByteString -> [ByteString]
 group xs
-    | null xs   = []
-    | otherwise = ys : group zs
+    | VS.null xs = []
+    | otherwise  = ys : group zs
     where
-        (ys, zs) = spanByte (unsafeHead xs) xs
+      (ys, zs) = spanByte (VS.unsafeHead xs) xs
 
 -- | The 'groupBy' function is the non-overloaded version of 'group'.
 groupBy :: (Word8 -> Word8 -> Bool) -> ByteString -> [ByteString]
 groupBy  k xs
-    | null xs   = []
-    | otherwise = unsafeTake n xs : groupBy k (unsafeDrop n xs)
+    | VS.null xs = []
+    | otherwise  = VS.unsafeTake n xs : groupBy k (VS.unsafeDrop n xs)
     where
-        n = 1 + findIndexOrEnd (not . k (unsafeHead xs)) (unsafeTail xs)
+      n = 1 + findIndexOrEnd (not . k (VS.unsafeHead xs)) (VS.unsafeTail xs)
 
 -- | 'findIndexOrEnd' is a variant of findIndex, that returns the length
 -- of the string if no element is found, rather than Nothing.
@@ -789,8 +787,8 @@ inits v = [VS.unsafeTake s v | s <- [0..VS.length v]]
 
 -- | /O(n)/ Return all final segments of the given 'ByteString', longest first.
 tails :: ByteString -> [ByteString]
-tails p | null p    = [empty]
-        | otherwise = p : tails (unsafeTail p)
+tails p | VS.null p = [VS.empty]
+        | otherwise = p : tails (VS.unsafeTail p)
 
 --------------------------------------------------------------------------------
 -- ** Breaking into many substrings
@@ -938,14 +936,14 @@ isInfixOf p s = isJust (findSubstring p s)
 --
 breakSubstring :: ByteString -- ^ String to search for
                -> ByteString -- ^ String to search in
-               -> (ByteString,ByteString) -- ^ Head and tail of string broken at substring
-
+               -> (ByteString, ByteString)
+                             -- ^ Head and tail of string broken at substring
 breakSubstring pat src = search 0 src
   where
     search !n !s
-        | null s             = (src, empty) -- not found
-        | pat `isPrefixOf` s = (take n src, s)
-        | otherwise          = search (n+1) (unsafeTail s)
+        | VS.null s          = (src, VS.empty) -- not found
+        | pat `isPrefixOf` s = (VS.take n src, s)
+        | otherwise          = search (n+1) (VS.unsafeTail s)
 
 -- | Get the first index of a substring in another string,
 --   or 'Nothing' if the string is not found.
@@ -964,14 +962,15 @@ findSubstrings :: ByteString -- ^ String to search for.
                -> ByteString -- ^ String to seach in.
                -> [Int]
 findSubstrings pat str
-    | null pat         = [0 .. length str]
-    | otherwise        = search 0 str
+    | VS.null pat = [0 .. VS.length str]
+    | otherwise   = search 0 str
   where
-    search !n !s
-        | null s             = []
-        | pat `isPrefixOf` s = n : search (n+1) (unsafeTail s)
-        | otherwise          =     search (n+1) (unsafeTail s)
-
+    search !ix !s
+        | VS.null s          = []
+        | pat `isPrefixOf` s = ix : ixs
+        | otherwise          =      ixs
+        where
+          ixs = search (ix+1) (VS.unsafeTail s)
 {-# DEPRECATED findSubstrings "findSubstrings is deprecated in favour of breakSubstring." #-}
 
 
@@ -1049,15 +1048,15 @@ elemIndices w bs = VS.toList $ VS.elemIndices w bs
 --
 elemIndexEnd :: Word8 -> ByteString -> Maybe Int
 elemIndexEnd ch v = unsafeInlineIO $ withForeignPtr fp $ \p ->
-                      let go !i | i < 0     = return Nothing
-                                | otherwise = do
-                                    ch' <- peekByteOff p i
-                                    if ch == ch'
-                                      then return $ Just i
-                                      else go (i-1)
-                      in go (l - 1)
-    where
-      (fp, _, l) = VS.unsafeToForeignPtr v
+    let go !i | i < 0     = return Nothing
+              | otherwise = do
+                  ch' <- peekByteOff p i
+                  if ch == ch'
+                    then return $ Just i
+                    else go (i-1)
+    in go (l - 1)
+        where
+          (fp, _, l) = VS.unsafeToForeignPtr v
 {-# INLINE elemIndexEnd #-}
 
 -- | The 'findIndex' function takes a predicate and a 'ByteString' and
@@ -1079,8 +1078,8 @@ findIndices p bs = VS.toList $ VS.findIndices p bs
 count :: Word8 -> ByteString -> Int
 count w v = unsafeInlineIO $ withForeignPtr fp $ \p ->
     fmap fromIntegral $ c_count p (fromIntegral l) w
-    where
-      (fp, _, l) = VS.unsafeToForeignPtr v
+        where
+          (fp, _, l) = VS.unsafeToForeignPtr v
 {-# INLINE count #-}
 
 
@@ -1094,38 +1093,40 @@ count w v = unsafeInlineIO $ withForeignPtr fp $ \p ->
 -- equivalent to a pair of 'unpack' operations.
 zip :: ByteString -> ByteString -> [(Word8,Word8)]
 zip ps qs
-    | null ps || null qs = []
-    | otherwise = (unsafeHead ps, unsafeHead qs) : zip (unsafeTail ps) (unsafeTail qs)
+    | VS.null ps || VS.null qs = []
+    | otherwise = (VS.unsafeHead ps, VS.unsafeHead qs)
+                : zip (VS.unsafeTail ps) (VS.unsafeTail qs)
 
 -- | 'zipWith' generalises 'zip' by zipping with the function given as
 -- the first argument, instead of a tupling function.  For example,
 -- @'zipWith' (+)@ is applied to two ByteStrings to produce the list of
 -- corresponding sums.
 zipWith :: (Word8 -> Word8 -> a) -> ByteString -> ByteString -> [a]
-zipWith f ps qs
-    | null ps || null qs = []
-    | otherwise = f (unsafeHead ps) (unsafeHead qs) : zipWith f (unsafeTail ps) (unsafeTail qs)
+zipWith f = go
+    where
+      go ps qs
+        | VS.null ps || VS.null qs = []
+        | otherwise = f (VS.unsafeHead ps) (VS.unsafeHead qs)
+                    : go (VS.unsafeTail ps) (VS.unsafeTail qs)
 
---
 -- | A specialised version of zipWith for the common case of a
 -- simultaneous map over two bytestrings, to build a 3rd. Rewrite rules
 -- are used to automatically covert zipWith into zipWith' when a pack is
 -- performed on the result of zipWith.
---
 zipWith' :: (Word8 -> Word8 -> Word8) -> ByteString -> ByteString -> ByteString
 zipWith' f v1 v2 =
     unsafeInlineIO $
       withForeignPtr fp1 $ \p1 ->
          withForeignPtr fp2 $ \p2 ->
            create len $ \p ->
-             let zipWith_ !n
+             let go !n
                      | n >= len = return ()
                      | otherwise = do
                          x <- peekByteOff p1 n
                          y <- peekByteOff p2 n
                          pokeByteOff p n (f x y)
-                         zipWith_ (n+1)
-             in zipWith_ 0
+                         go (n+1)
+             in go 0
     where
       len = min l1 l2
 
@@ -1153,33 +1154,32 @@ unzip ls = ( VS.fromList $ List.map fst ls
 
 -- | /O(n)/ Sort a ByteString efficiently, using counting sort.
 sort :: ByteString -> ByteString
-sort v = unsafeCreate l $ \p' -> allocaArray 256 $ \arr -> do
+sort v = unsafeCreate l $ \p' -> allocaArray 256 $ \counts -> do
 
-    void $ memset (castPtr arr)
+    -- Initialize counts array to all 0s:
+    void $ memset (castPtr counts)
                   0
                   (256 * fromIntegral (sizeOf (undefined :: CSize)))
 
-    withForeignPtr fp $ \p -> countOccurrences arr p l
+    -- Count occurrences:
+    withForeignPtr fp $ \p ->
+        let go !i | i == l    = return ()
+                  | otherwise = do
+                      k <- fromIntegral `fmap` peekElemOff p i
+                      x <- peekElemOff counts k
+                      pokeElemOff counts k (x + 1)
+                      go (i + 1)
+        in go 0
 
+    -- Fill result array:
     let go 256 _   = return ()
-        go !i !ptr = do n <- peekElemOff arr i
-                        when (n /= 0) $ void $ memset ptr (fromIntegral i) n
-                        go (i + 1) (ptr `plusPtr` fromIntegral n)
+        go !i !ptr = do
+          n <- peekElemOff counts i
+          when (n /= 0) $ void $ memset ptr (fromIntegral i) n
+          go (i + 1) (ptr `plusPtr` fromIntegral n)
     go 0 p'
   where
     (fp, _, l) = VS.unsafeToForeignPtr v
-
-    -- | Count the number of occurrences of each byte.
-    -- Used by 'sort'
-    --
-    countOccurrences :: Ptr CSize -> Ptr Word8 -> Int -> IO ()
-    countOccurrences !counts !str !len = go 0
-     where
-        go !i | i == len    = return ()
-              | otherwise = do k <- fromIntegral `fmap` peekElemOff str i
-                               x <- peekElemOff counts k
-                               pokeElemOff counts k (x + 1)
-                               go (i + 1)
 
 
 --------------------------------------------------------------------------------
@@ -1198,7 +1198,7 @@ sort v = unsafeCreate l $ \p' -> allocaArray 256 $ \arr -> do
 copy :: ByteString -> ByteString
 copy v = unsafeCreate l $ \p' ->
             withForeignPtr fp $ \p ->
-             memcpy p' p (fromIntegral l)
+                memcpy p' p (fromIntegral l)
     where
       (fp, _, l) = VS.unsafeToForeignPtr v
 
@@ -1234,9 +1234,9 @@ useAsCString :: ByteString -> (CString -> IO a) -> IO a
 useAsCString v action = do
  allocaBytes (l+1) $ \buf ->
     withForeignPtr fp $ \p -> do
-     memcpy buf p (fromIntegral l)
-     pokeByteOff buf l (0::Word8)
-     action (castPtr buf)
+      memcpy buf p (fromIntegral l)
+      pokeByteOff buf l (0::Word8)
+      action (castPtr buf)
     where
       (fp, _, l) = VS.unsafeToForeignPtr v
 
@@ -1289,18 +1289,16 @@ interact transformer = putStr . transformer =<< getContents
 -- for 'text mode' use the Char8 version of this function.
 --
 readFile :: FilePath -> IO ByteString
-readFile f = bracket (openBinaryFile f ReadMode) hClose
-    (\h -> hFileSize h >>= hGet h . fromIntegral)
+readFile f = withBinaryFile f ReadMode $ \h ->
+               hFileSize h >>= hGet h . fromIntegral
 
 -- | Write a 'ByteString' to a file.
 writeFile :: FilePath -> ByteString -> IO ()
-writeFile f txt = bracket (openBinaryFile f WriteMode) hClose
-    (\h -> hPut h txt)
+writeFile f txt = withBinaryFile f WriteMode $ \h -> hPut h txt
 
 -- | Append a 'ByteString' to a file.
 appendFile :: FilePath -> ByteString -> IO ()
-appendFile f txt = bracket (openBinaryFile f AppendMode) hClose
-    (\h -> hPut h txt)
+appendFile f txt = withBinaryFile f AppendMode $ \h -> hPut h txt
 
 --------------------------------------------------------------------------------
 -- ** I\/O with Handles
@@ -1314,13 +1312,11 @@ hGetLine h =
       flushCharReadBuffer h_
       buf <- readIORef haByteBuffer
       if isEmptyBuffer buf
-         then fill h_ buf 0 []
-         else haveBuf h_ buf 0 []
+        then fill    h_ buf 0 []
+        else haveBuf h_ buf 0 []
  where
-
-  fill h_@Handle__{haByteBuffer,haDevice} buf len xss =
-    len `seq` do
-    (r,buf') <- Buffered.fillReadBuffer haDevice buf
+  fill h_@Handle__{haByteBuffer, haDevice} buf !len xss = do
+    (r, buf') <- Buffered.fillReadBuffer haDevice buf
     if r == 0
        then do writeIORef haByteBuffer buf{ bufR=0, bufL=0 }
                if len > 0
@@ -1330,30 +1326,28 @@ hGetLine h =
 
   haveBuf h_@Handle__{haByteBuffer}
           buf@Buffer{ bufRaw=raw, bufR=w, bufL=r }
-          len xss =
-    do
-        off <- findEOL r w raw
-        let new_len = len + off - r
-        xs <- mkPS raw r off
+          len xss = do
+    off <- findEOL r w raw
+    let new_len = len + off - r
+    xs <- mkPS raw r off
 
-      -- if eol == True, then off is the offset of the '\n'
-      -- otherwise off == w and the buffer is now empty.
-        if off /= w
-            then do if (w == off + 1)
-                            then writeIORef haByteBuffer buf{ bufL=0, bufR=0 }
-                            else writeIORef haByteBuffer buf{ bufL = off + 1 }
-                    mkBigPS new_len (xs:xss)
-            else do
-                 fill h_ buf{ bufL=0, bufR=0 } new_len (xs:xss)
+    -- if eol == True, then off is the offset of the '\n'
+    -- otherwise off == w and the buffer is now empty.
+    if off /= w
+      then do if (w == off + 1)
+                then writeIORef haByteBuffer buf{ bufL=0, bufR=0 }
+                else writeIORef haByteBuffer buf{ bufL = off + 1 }
+              mkBigPS new_len (xs:xss)
+      else fill h_ buf{ bufL=0, bufR=0 } new_len (xs:xss)
 
   -- find the end-of-line character, if there is one
   findEOL r w raw
-        | r == w = return w
-        | otherwise =  do
-            c <- readWord8Buf raw r
-            if c == fromIntegral (ord '\n')
-                then return r -- NB. not r+1: don't include the '\n'
-                else findEOL (r+1) w raw
+      | r == w = return w
+      | otherwise =  do
+          c <- readWord8Buf raw r
+          if c == fromIntegral (ord '\n')
+            then return r -- NB. not r+1: don't include the '\n'
+            else findEOL (r+1) w raw
 
 mkPS :: RawBuffer Word8 -> Int -> Int -> IO ByteString
 mkPS buf start end =
@@ -1364,14 +1358,14 @@ mkPS buf start end =
    len = end - start
 
 mkBigPS :: Int -> [ByteString] -> IO ByteString
-mkBigPS _ [ps] = return ps
-mkBigPS _ pss = return $! concat (List.reverse pss)
+mkBigPS _ [v] = return v
+mkBigPS _ vs  = return $! VS.concat (List.reverse vs)
 
 -- | Outputs a 'ByteString' to the specified 'Handle'.
 hPut :: Handle -> ByteString -> IO ()
 hPut h v
     | l == 0    = return ()
-    | otherwise =  withForeignPtr fp $ \p -> hPutBuf h p l
+    | otherwise = withForeignPtr fp $ \p -> hPutBuf h p l
     where
       (fp, _, l) = VS.unsafeToForeignPtr v
 
@@ -1386,13 +1380,13 @@ hPut h v
 #if defined(__GLASGOW_HASKELL__)
 hPutNonBlocking :: Handle -> ByteString -> IO ByteString
 hPutNonBlocking h v = do
-  bytesWritten <-  withForeignPtr fp $ \p-> hPutBufNonBlocking h p l
-  return $! drop bytesWritten v
+  bytesWritten <- withForeignPtr fp $ \p-> hPutBufNonBlocking h p l
+  return $! VS.drop bytesWritten v
       where
         (fp, _, l) = VS.unsafeToForeignPtr v
 #else
 hPutNonBlocking :: Handle -> B.ByteString -> IO Int
-hPutNonBlocking h bs = hPut h bs >> return empty
+hPutNonBlocking h v = hPut h v >> return VS.empty
 #endif
 
 -- | A synonym for @hPut@, for compatibility
@@ -1401,9 +1395,9 @@ hPutStr = hPut
 
 -- | Write a ByteString to a handle, appending a newline byte
 hPutStrLn :: Handle -> ByteString -> IO ()
-hPutStrLn h ps
-    | length ps < 1024 = hPut h (ps `snoc` 0x0a)
-    | otherwise        = hPut h ps >> hPut h (singleton (0x0a)) -- don't copy
+hPutStrLn h v
+    | VS.length v < 1024 = hPut h (v `snoc` 0x0a)
+    | otherwise          = hPut h v >> hPut h (singleton (0x0a)) -- don't copy
 
 -- | Read a 'ByteString' directly from the specified 'Handle'.  This
 -- is far more efficient than reading the characters into a 'String'
@@ -1419,7 +1413,7 @@ hPutStrLn h ps
 hGet :: Handle -> Int -> IO ByteString
 hGet h i
     | i >  0    = createAndTrim i $ \p -> hGetBuf h p i
-    | i == 0    = return empty
+    | i == 0    = return VS.empty
     | otherwise = illegalBufferSize h "hGet" i
 
 -- | hGetNonBlocking is identical to 'hGet', except that it will never
@@ -1429,7 +1423,7 @@ hGet h i
 hGetNonBlocking :: Handle -> Int -> IO ByteString
 hGetNonBlocking h i
     | i >  0    = createAndTrim i $ \p -> hGetBufNonBlocking h p i
-    | i == 0    = return empty
+    | i == 0    = return VS.empty
     | otherwise = illegalBufferSize h "hGetNonBlocking" i
 
 -- | Like 'hGet', except that a shorter 'ByteString' may be returned
@@ -1440,22 +1434,23 @@ hGetNonBlocking h i
 hGetSome :: Handle -> Int -> IO ByteString
 hGetSome hh i
 #if MIN_VERSION_base(4,3,0)
-    | i >  0    = createAndTrim i $ \p -> hGetBufSome hh p i
+    | i > 0 = createAndTrim i $ \p -> hGetBufSome hh p i
 #else
-    | i >  0    = let
-                   loop = do
-                     s <- hGetNonBlocking hh i
-                     if not (null s)
-                        then return s
-                        else do eof <- hIsEOF hh
-                                if eof then return s
-                                       else hWaitForInput hh (-1) >> loop
-                                         -- for this to work correctly, the
-                                         -- Handle should be in binary mode
-                                         -- (see GHC ticket #3808)
-                  in loop
+    | i > 0 = let
+               loop = do
+                 v <- hGetNonBlocking hh i
+                 if not (VS.null v)
+                   then return v
+                   else do eof <- hIsEOF hh
+                           if eof
+                             then return v
+                             else hWaitForInput hh (-1) >> loop
+                                  -- for this to work correctly, the
+                                  -- Handle should be in binary mode
+                                  -- (see GHC ticket #3808)
+              in loop
 #endif
-    | i == 0    = return empty
+    | i == 0    = return VS.empty
     | otherwise = illegalBufferSize hh "hGetSome" i
 
 illegalBufferSize :: Handle -> String -> Int -> IO a
@@ -1464,7 +1459,6 @@ illegalBufferSize handle fn sz =
     --TODO: System.IO uses InvalidArgument here, but it's not exported :-(
     where
       msg = fn ++ ": illegal ByteString size " ++ showsPrec 9 sz []
-
 
 -- | Read entire handle contents strictly into a 'ByteString'.
 --

@@ -224,28 +224,26 @@ module Data.Vector.Storable.ByteString.Char8 (
 --------------------------------------------------------------------------------
 
 -- from base:
-import Data.Function      ( (.), ($) )
-import Data.Ord           ( (<), (<=), (>=) )
+import Control.Monad      ( (>>=), (>>), return )
+import Data.Bool          ( Bool(False, True), (&&), (||), not, otherwise )
+import Data.Char          ( isSpace )
 import Data.Eq            ( (==) )
+import Data.Function      ( (.), ($) )
 import Data.Functor       ( fmap )
 import Data.Int           ( Int )
-import Data.Char          ( isSpace )
-import Data.Tuple         ( fst, snd )
 import Data.Maybe         ( Maybe(Nothing, Just) )
-import Data.Bool          ( Bool(False, True), (&&), (||), not, otherwise )
+import Data.Ord           ( (<), (<=), (>=) )
 import Data.String        ( String, IsString, fromString )
-import Foreign.ForeignPtr ( withForeignPtr )
-import Control.Monad      ( (>>=), (>>), return )
-import Control.Exception  ( bracket )
+import Data.Tuple         ( fst, snd )
 import Data.Word          ( Word8 )
+import Foreign.ForeignPtr ( withForeignPtr )
 import Foreign.Storable   ( peekElemOff, peekByteOff )
 import Prelude            ( Integer, fromIntegral, toInteger, negate
                           , (*), (+), (-), (^), ($!), seq,
                           )
 import System.IO          ( IO, FilePath, Handle
                           , IOMode(ReadMode, WriteMode, AppendMode)
-                          , openFile, hClose, stdout
-                          , hFileSize
+                          , withFile, stdout, hFileSize
                           )
 
 import qualified Data.List as L ( length, map, intersperse, filter )
@@ -446,7 +444,8 @@ minimum = w2c . B.minimum
 -- 'foldl'; it applies a function to each element of a ByteString,
 -- passing an accumulating parameter from left to right, and returning a
 -- final value of this accumulator together with the new list.
-mapAccumL :: (acc -> Char -> (acc, Char)) -> acc -> ByteString -> (acc, ByteString)
+mapAccumL :: (acc -> Char -> (acc, Char))
+          -> acc -> ByteString -> (acc, ByteString)
 mapAccumL f = B.mapAccumL $ \acc w ->
                 case f acc (w2c w) of
                   (acc', c) -> (acc', c2w c)
@@ -455,7 +454,8 @@ mapAccumL f = B.mapAccumL $ \acc w ->
 -- 'foldr'; it applies a function to each element of a ByteString,
 -- passing an accumulating parameter from right to left, and returning a
 -- final value of this accumulator together with the new ByteString.
-mapAccumR :: (acc -> Char -> (acc, Char)) -> acc -> ByteString -> (acc, ByteString)
+mapAccumR :: (acc -> Char -> (acc, Char))
+          -> acc -> ByteString -> (acc, ByteString)
 mapAccumR f = B.mapAccumR $ \acc w ->
                 case f acc (w2c w) of
                   (acc', c) -> (acc', c2w c)
@@ -912,19 +912,16 @@ readInteger as
 -- 'pack'.  It also may be more efficient than opening the file and
 -- reading it using hGet.
 readFile :: FilePath -> IO ByteString
-readFile f = bracket (openFile f ReadMode) hClose
-    (\h -> hFileSize h >>= B.hGet h . fromIntegral)
+readFile f = withFile f ReadMode $ \h ->
+               hFileSize h >>= B.hGet h . fromIntegral
 
 -- | Write a 'ByteString' to a file.
 writeFile :: FilePath -> ByteString -> IO ()
-writeFile f txt = bracket (openFile f WriteMode) hClose
-    (\h -> B.hPut h txt)
+writeFile f txt = withFile f WriteMode $ \h -> B.hPut h txt
 
 -- | Append a 'ByteString' to a file.
 appendFile :: FilePath -> ByteString -> IO ()
-appendFile f txt = bracket (openFile f AppendMode) hClose
-    (\h -> B.hPut h txt)
-
+appendFile f txt = withFile f AppendMode $ \h -> B.hPut h txt
 
 -- | Write a ByteString to a handle, appending a newline byte
 hPutStrLn :: Handle -> ByteString -> IO ()

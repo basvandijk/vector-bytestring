@@ -529,20 +529,17 @@ mapAccumL :: (acc -> Word8 -> (acc, Word8))
           -> acc -> ByteString -> (acc, ByteString)
 mapAccumL f acc v = unsafeInlineIO $ withForeignPtr fp $ \p -> do
     fp' <- mallocVector l
-    withForeignPtr fp' $ \p' -> do
-
-      let mapAccumL_ !a !m
-            | m >= l = return a
+    withForeignPtr fp' $ \p' ->
+      let go !a !m
+            | m >= l = return (a, unsafeFromForeignPtr0 fp' l)
             | otherwise = do
                 x <- peekByteOff p m
                 let (a', y) = f a x
                 pokeByteOff p' m y
-                mapAccumL_ a' (m+1)
-
-      acc' <- mapAccumL_ acc 0
-      return $! (acc', unsafeFromForeignPtr0 fp' l)
-    where
-      (fp, l) = unsafeToForeignPtr0 v
+                go a' (m+1)
+      in go acc 0
+          where
+            (fp, l) = unsafeToForeignPtr0 v
 {-# INLINE mapAccumL #-}
 
 -- | The 'mapAccumR' function behaves like a combination of 'map' and
@@ -553,20 +550,17 @@ mapAccumR :: (acc -> Word8 -> (acc, Word8))
           -> acc -> ByteString -> (acc, ByteString)
 mapAccumR f acc v = unsafeInlineIO $ withForeignPtr fp $ \p -> do
     fp' <- mallocVector l
-    withForeignPtr fp' $ \p' -> do
-
-      let mapAccumR_ !a !m
-            | m < 0     = return a
+    withForeignPtr fp' $ \p' ->
+      let go !a !m
+            | m < 0     = return (a, unsafeFromForeignPtr0 fp' l)
             | otherwise = do
                 x <- peekByteOff p m
                 let (a', y) = f a x
                 pokeByteOff p' m y
-                mapAccumR_ a' (m-1)
-
-      acc' <- mapAccumR_ acc (l-1)
-      return $! (acc', unsafeFromForeignPtr0 fp' l)
-    where
-      (fp, l) = unsafeToForeignPtr0 v
+                go a' (m-1)
+      in go acc (l-1)
+          where
+            (fp, l) = unsafeToForeignPtr0 v
 {-# INLINE mapAccumR #-}
 
 --------------------------------------------------------------------------------
@@ -620,8 +614,9 @@ unfoldrN i f x0
             Nothing      -> return (0, n, Nothing)
             Just (w, x')
              | n == i    -> return (0, n, Just x)
-             | otherwise -> do poke p w
-                               go (p `plusPtr` 1) x' (n+1)
+             | otherwise -> do
+                 poke p w
+                 go (p `plusPtr` 1) x' (n+1)
 {-# INLINE unfoldrN #-}
 
 
@@ -696,12 +691,12 @@ spanByte c v = unsafeInlineIO $ withForeignPtr fp $ \p ->
 --
 -- and
 --
--- > spanEnd (not . isSpace) ps
+-- > spanEnd (not . isSpace) v
 -- >    ==
--- > let (x,y) = span (not.isSpace) (reverse ps) in (reverse y, reverse x)
+-- > let (x,y) = span (not.isSpace) (reverse v) in (reverse y, reverse x)
 --
 spanEnd :: (Word8 -> Bool) -> ByteString -> (ByteString, ByteString)
-spanEnd p ps = VS.splitAt (findFromEndUntil (not . p) ps) ps
+spanEnd p v = VS.splitAt (findFromEndUntil (not . p) v) v
 
 -- | 'break' @p@ is equivalent to @'span' ('not' . p)@.
 --
@@ -739,7 +734,7 @@ breakByte c p = case VS.elemIndex c p of
 --
 -- breakEnd p == spanEnd (not.p)
 breakEnd :: (Word8 -> Bool) -> ByteString -> (ByteString, ByteString)
-breakEnd p ps = VS.splitAt (findFromEndUntil p ps) ps
+breakEnd p v = VS.splitAt (findFromEndUntil p v) v
 
 -- | The 'group' function takes a ByteString and returns a list of
 -- ByteStrings such that the concatenation of the result is equal to the
@@ -772,10 +767,11 @@ findIndexOrEnd :: (Word8 -> Bool) -> ByteString -> Int
 findIndexOrEnd k v = unsafeInlineIO $  withForeignPtr fp $ \p ->
   let end = p `plusPtr` l
       go !ptr | ptr == end = return l
-              | otherwise = do w <- peek ptr
-                               if k w
-                                 then return (ptr `minusPtr` p)
-                                 else go (ptr `plusPtr` 1)
+              | otherwise = do
+                  w <- peek ptr
+                  if k w
+                    then return (ptr `minusPtr` p)
+                    else go (ptr `plusPtr` 1)
   in go p
     where
       (fp, l) = unsafeToForeignPtr0 v
@@ -787,8 +783,8 @@ inits v = [VS.unsafeTake s v | s <- [0..VS.length v]]
 
 -- | /O(n)/ Return all final segments of the given 'ByteString', longest first.
 tails :: ByteString -> [ByteString]
-tails p | VS.null p = [VS.empty]
-        | otherwise = p : tails (VS.unsafeTail p)
+tails v | VS.null v = [VS.empty]
+        | otherwise = v : tails (VS.unsafeTail v)
 
 --------------------------------------------------------------------------------
 -- ** Breaking into many substrings
@@ -1092,10 +1088,10 @@ count w v = unsafeInlineIO $ withForeignPtr fp $ \p ->
 -- excess elements of the longer ByteString are discarded. This is
 -- equivalent to a pair of 'unpack' operations.
 zip :: ByteString -> ByteString -> [(Word8,Word8)]
-zip ps qs
-    | VS.null ps || VS.null qs = []
-    | otherwise = (VS.unsafeHead ps, VS.unsafeHead qs)
-                : zip (VS.unsafeTail ps) (VS.unsafeTail qs)
+zip v1 v2
+    | VS.null v1 || VS.null v2 = []
+    | otherwise = (VS.unsafeHead v1, VS.unsafeHead v2)
+                : zip (VS.unsafeTail v1) (VS.unsafeTail v2)
 
 -- | 'zipWith' generalises 'zip' by zipping with the function given as
 -- the first argument, instead of a tupling function.  For example,
@@ -1104,10 +1100,10 @@ zip ps qs
 zipWith :: (Word8 -> Word8 -> a) -> ByteString -> ByteString -> [a]
 zipWith f = go
     where
-      go ps qs
-        | VS.null ps || VS.null qs = []
-        | otherwise = f (VS.unsafeHead ps) (VS.unsafeHead qs)
-                    : go (VS.unsafeTail ps) (VS.unsafeTail qs)
+      go v1 v2
+        | VS.null v1 || VS.null v2 = []
+        | otherwise = f (VS.unsafeHead v1) (VS.unsafeHead v2)
+                    : go (VS.unsafeTail v1) (VS.unsafeTail v2)
 
 -- | A specialised version of zipWith for the common case of a
 -- simultaneous map over two bytestrings, to build a 3rd. Rewrite rules

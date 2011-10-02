@@ -271,10 +271,9 @@ import Control.Monad.Primitive ( unsafeInlineIO )
 -- from vector-bytestring (this package):
 import Data.Vector.Storable.ByteString.Internal ( c2w, w2c, isSpaceWord8 )
 
-import qualified Data.Vector.Storable.ByteString          as B
+import qualified Data.Vector.Storable.ByteString          as B 
 import qualified Data.Vector.Storable.ByteString.Internal as BI ( unsafeCreate )
-import qualified Data.Vector.Storable.ByteString.Unsafe   as BU
-    ( unsafeHead, unsafeTail, unsafeTake, unsafeDrop, unsafePackAddress )
+import qualified Data.Vector.Storable.ByteString.Unsafe   as BU ( unsafePackAddress )
 
 import Data.Vector.Storable.ByteString ( ByteString )
 
@@ -285,7 +284,7 @@ import ForeignPtr ( unsafeToForeignPtr0, unsafeFromForeignPtr0 )
 
 -- | /O(1)/ Convert a 'Char' into a 'ByteString'
 singleton :: Char -> ByteString
-singleton = B.singleton . c2w
+singleton = VS.singleton . c2w
 {-# INLINE singleton #-}
 
 instance IsString ByteString where
@@ -299,7 +298,7 @@ instance IsString ByteString where
 pack :: String -> ByteString
 #if !defined(__GLASGOW_HASKELL__)
 
-pack str = B.unsafeCreate (L.length str) $ \p -> go p str
+pack str = BI.unsafeCreate (L.length str) $ \p -> go p str
     where go _ []     = return ()
           go p (x:xs) = poke p (c2w x) >> go (p `plusPtr` 1) xs
 
@@ -331,13 +330,13 @@ unpack = L.map w2c . B.unpack
 -- | /O(n)/ 'cons' is analogous to (:) for lists, but of different
 -- complexity, as it requires a memcpy.
 cons :: Char -> ByteString -> ByteString
-cons = B.cons . c2w
+cons = VS.cons . c2w
 {-# INLINE cons #-}
 
 -- | /O(n)/ Append a Char to the end of a 'ByteString'. Similar to
 -- 'cons', this function performs a memcpy.
 snoc :: ByteString -> Char -> ByteString
-snoc p = B.snoc p . c2w
+snoc p = VS.snoc p . c2w
 {-# INLINE snoc #-}
 
 -- | /O(1)/ Extract the head and tail of a ByteString, returning Nothing
@@ -348,17 +347,17 @@ uncons = fmap (\(w,v) -> (w2c w, v)) . B.uncons
 
 -- | /O(1)/ Extract the first element of a ByteString, which must be non-empty.
 head :: ByteString -> Char
-head = w2c . B.head
+head = w2c . VS.head
 {-# INLINE head #-}
 
 -- | /O(1)/ Extract the last element of a packed string, which must be non-empty.
 last :: ByteString -> Char
-last = w2c . B.last
+last = w2c . VS.last
 {-# INLINE last #-}
 
 -- | /O(n)/ 'map' @f xs@ is the ByteString obtained by applying @f@ to each element of @xs@
 map :: (Char -> Char) -> ByteString -> ByteString
-map f = B.map (c2w . f . w2c)
+map f = VS.map (c2w . f . w2c)
 {-# INLINE map #-}
 
 -- | /O(n)/ The 'intersperse' function takes a Char and a 'ByteString'
@@ -372,73 +371,73 @@ intersperse = B.intersperse . c2w
 -- the left-identity of the operator), and a ByteString, reduces the
 -- ByteString using the binary operator, from left to right.
 foldl :: (a -> Char -> a) -> a -> ByteString -> a
-foldl f = B.foldl (\a c -> f a (w2c c))
+foldl f = VS.foldl (\a c -> f a (w2c c))
 {-# INLINE foldl #-}
 
 -- | 'foldl\'' is like foldl, but strict in the accumulator.
 foldl' :: (a -> Char -> a) -> a -> ByteString -> a
-foldl' f = B.foldl' (\a c -> f a (w2c c))
+foldl' f = VS.foldl' (\a c -> f a (w2c c))
 {-# INLINE foldl' #-}
 
 -- | 'foldr', applied to a binary operator, a starting value
 -- (typically the right-identity of the operator), and a packed string,
 -- reduces the packed string using the binary operator, from right to left.
 foldr :: (Char -> a -> a) -> a -> ByteString -> a
-foldr f = B.foldr (\c a -> f (w2c c) a)
+foldr f = VS.foldr (\c a -> f (w2c c) a)
 {-# INLINE foldr #-}
 
 -- | 'foldr\'' is a strict variant of foldr
 foldr' :: (Char -> a -> a) -> a -> ByteString -> a
-foldr' f = B.foldr' (\c a -> f (w2c c) a)
+foldr' f = VS.foldr' (\c a -> f (w2c c) a)
 {-# INLINE foldr' #-}
 
 -- | 'foldl1' is a variant of 'foldl' that has no starting value
 -- argument, and thus must be applied to non-empty 'ByteStrings'.
 foldl1 :: (Char -> Char -> Char) -> ByteString -> Char
-foldl1 f ps = w2c (B.foldl1 (\x y -> c2w (f (w2c x) (w2c y))) ps)
+foldl1 f ps = w2c (VS.foldl1 (\x y -> c2w (f (w2c x) (w2c y))) ps)
 {-# INLINE foldl1 #-}
 
 -- | A strict version of 'foldl1'
 foldl1' :: (Char -> Char -> Char) -> ByteString -> Char
-foldl1' f ps = w2c (B.foldl1' (\x y -> c2w (f (w2c x) (w2c y))) ps)
+foldl1' f ps = w2c (VS.foldl1' (\x y -> c2w (f (w2c x) (w2c y))) ps)
 {-# INLINE foldl1' #-}
 
 -- | 'foldr1' is a variant of 'foldr' that has no starting value argument,
 -- and thus must be applied to non-empty 'ByteString's
 foldr1 :: (Char -> Char -> Char) -> ByteString -> Char
-foldr1 f ps = w2c (B.foldr1 (\x y -> c2w (f (w2c x) (w2c y))) ps)
+foldr1 f ps = w2c (VS.foldr1 (\x y -> c2w (f (w2c x) (w2c y))) ps)
 {-# INLINE foldr1 #-}
 
 -- | A strict variant of foldr1
 foldr1' :: (Char -> Char -> Char) -> ByteString -> Char
-foldr1' f ps = w2c (B.foldr1' (\x y -> c2w (f (w2c x) (w2c y))) ps)
+foldr1' f ps = w2c (VS.foldr1' (\x y -> c2w (f (w2c x) (w2c y))) ps)
 {-# INLINE foldr1' #-}
 
 -- | Map a function over a 'ByteString' and concatenate the results
 concatMap :: (Char -> ByteString) -> ByteString -> ByteString
-concatMap f = B.concatMap (f . w2c)
+concatMap f = VS.concatMap (f . w2c)
 {-# INLINE concatMap #-}
 
 -- | Applied to a predicate and a ByteString, 'any' determines if
 -- any element of the 'ByteString' satisfies the predicate.
 any :: (Char -> Bool) -> ByteString -> Bool
-any f = B.any (f . w2c)
+any f = VS.any (f . w2c)
 {-# INLINE any #-}
 
 -- | Applied to a predicate and a 'ByteString', 'all' determines if
 -- all elements of the 'ByteString' satisfy the predicate.
 all :: (Char -> Bool) -> ByteString -> Bool
-all f = B.all (f . w2c)
+all f = VS.all (f . w2c)
 {-# INLINE all #-}
 
 -- | 'maximum' returns the maximum value from a 'ByteString'
 maximum :: ByteString -> Char
-maximum = w2c . B.maximum
+maximum = w2c . VS.maximum
 {-# INLINE maximum #-}
 
 -- | 'minimum' returns the minimum value from a 'ByteString'
 minimum :: ByteString -> Char
-minimum = w2c . B.minimum
+minimum = w2c . VS.minimum
 {-# INLINE minimum #-}
 
 -- | The 'mapAccumL' function behaves like a combination of 'map' and
@@ -470,21 +469,21 @@ mapAccumR f = B.mapAccumR $ \acc w ->
 --
 -- > last (scanl f z xs) == foldl f z xs.
 scanl :: (Char -> Char -> Char) -> Char -> ByteString -> ByteString
-scanl f z = B.scanl (\a b -> c2w (f (w2c a) (w2c b))) (c2w z)
+scanl f z = VS.scanl (\a b -> c2w (f (w2c a) (w2c b))) (c2w z)
 
 -- | 'scanl1' is a variant of 'scanl' that has no starting value argument:
 --
 -- > scanl1 f [x1, x2, ...] == [x1, x1 `f` x2, ...]
 scanl1 :: (Char -> Char -> Char) -> ByteString -> ByteString
-scanl1 f = B.scanl1 (\a b -> c2w (f (w2c a) (w2c b)))
+scanl1 f = VS.scanl1 (\a b -> c2w (f (w2c a) (w2c b)))
 
 -- | scanr is the right-to-left dual of scanl.
 scanr :: (Char -> Char -> Char) -> Char -> ByteString -> ByteString
-scanr f z = B.scanr (\a b -> c2w (f (w2c a) (w2c b))) (c2w z)
+scanr f z = VS.scanr (\a b -> c2w (f (w2c a) (w2c b))) (c2w z)
 
 -- | 'scanr1' is a variant of 'scanr' that has no starting value argument.
 scanr1 :: (Char -> Char -> Char) -> ByteString -> ByteString
-scanr1 f = B.scanr1 (\a b -> c2w (f (w2c a) (w2c b)))
+scanr1 f = VS.scanr1 (\a b -> c2w (f (w2c a) (w2c b)))
 
 -- | /O(n)/ 'replicate' @n x@ is a ByteString of length @n@ with @x@
 -- the value of every element. The following holds:
@@ -507,7 +506,7 @@ replicate w = B.replicate w . c2w
 --
 -- > unfoldr (\x -> if x <= '9' then Just (x, succ x) else Nothing) '0' == "0123456789"
 unfoldr :: (a -> Maybe (Char, a)) -> a -> ByteString
-unfoldr f x0 = B.unfoldr (fmap k . f) x0
+unfoldr f x0 = VS.unfoldr (fmap k . f) x0
     where k (i, j) = (c2w i, j)
 
 -- | /O(n)/ Like 'unfoldr', 'unfoldrN' builds a ByteString from a seed
@@ -527,12 +526,12 @@ unfoldrN n f w = B.unfoldrN n ((k `fmap`) . f) w
 -- returns the longest prefix (possibly empty) of @xs@ of elements that
 -- satisfy @p@.
 takeWhile :: (Char -> Bool) -> ByteString -> ByteString
-takeWhile f = B.takeWhile (f . w2c)
+takeWhile f = VS.takeWhile (f . w2c)
 {-# INLINE takeWhile #-}
 
 -- | 'dropWhile' @p xs@ returns the suffix remaining after 'takeWhile' @p xs@.
 dropWhile :: (Char -> Bool) -> ByteString -> ByteString
-dropWhile f = B.dropWhile (f . w2c)
+dropWhile f = VS.dropWhile (f . w2c)
 #if defined(__GLASGOW_HASKELL__)
 {-# INLINE [1] dropWhile #-}
 #endif
@@ -544,7 +543,7 @@ dropWhile f = B.dropWhile (f . w2c)
 
 -- | 'break' @p@ is equivalent to @'span' ('not' . p)@.
 break :: (Char -> Bool) -> ByteString -> (ByteString, ByteString)
-break f = B.break (f . w2c)
+break f = VS.break (f . w2c)
 #if defined(__GLASGOW_HASKELL__)
 {-# INLINE [1] break #-}
 #endif
@@ -566,14 +565,14 @@ break f = B.break (f . w2c)
 --
 breakChar :: Char -> ByteString -> (ByteString, ByteString)
 breakChar c p = case elemIndex c p of
-    Nothing -> (p, B.empty)
-    Just n  -> (BU.unsafeTake n p, BU.unsafeDrop n p)
+    Nothing -> (p, VS.empty)
+    Just n  -> (VS.unsafeTake n p, VS.unsafeDrop n p)
 {-# INLINE breakChar #-}
 
 -- | 'span' @p xs@ breaks the ByteString into two segments. It is
 -- equivalent to @('takeWhile' p xs, 'dropWhile' p xs)@
 span :: (Char -> Bool) -> ByteString -> (ByteString, ByteString)
-span f = B.span (f . w2c)
+span f = VS.span (f . w2c)
 {-# INLINE span #-}
 
 -- | 'spanEnd' behaves like 'span' but from the end of the 'ByteString'.
@@ -636,14 +635,14 @@ groupBy k = B.groupBy (\a b -> k (w2c a) (w2c b))
 
 -- | /O(1)/ 'ByteString' index (subscript) operator, starting from 0.
 index :: ByteString -> Int -> Char
-index = (w2c .) . B.index
+index = (w2c .) . (VS.!)
 {-# INLINE index #-}
 
 -- | /O(n)/ The 'elemIndex' function returns the index of the first
 -- element in the given 'ByteString' which is equal (by memchr) to the
 -- query element, or 'Nothing' if there is no such element.
 elemIndex :: Char -> ByteString -> Maybe Int
-elemIndex = B.elemIndex . c2w
+elemIndex = VS.elemIndex . c2w
 {-# INLINE elemIndex #-}
 
 -- | /O(n)/ The 'elemIndexEnd' function returns the last index of the
@@ -667,7 +666,7 @@ elemIndices = B.elemIndices . c2w
 -- | The 'findIndex' function takes a predicate and a 'ByteString' and
 -- returns the index of the first element in the ByteString satisfying the predicate.
 findIndex :: (Char -> Bool) -> ByteString -> Maybe Int
-findIndex f = B.findIndex (f . w2c)
+findIndex f = VS.findIndex (f . w2c)
 {-# INLINE findIndex #-}
 
 -- | The 'findIndices' function extends 'findIndex', by returning the
@@ -690,26 +689,26 @@ count c = B.count (c2w c)
 -- | /O(n)/ 'elem' is the 'ByteString' membership predicate. This
 -- implementation uses @memchr(3)@.
 elem :: Char -> ByteString -> Bool
-elem    c = B.elem (c2w c)
+elem c = VS.elem (c2w c)
 {-# INLINE elem #-}
 
 -- | /O(n)/ 'notElem' is the inverse of 'elem'
 notElem :: Char -> ByteString -> Bool
-notElem c = B.notElem (c2w c)
+notElem c = VS.notElem (c2w c)
 {-# INLINE notElem #-}
 
 -- | /O(n)/ 'filter', applied to a predicate and a ByteString,
 -- returns a ByteString containing those characters that satisfy the
 -- predicate.
 filter :: (Char -> Bool) -> ByteString -> ByteString
-filter f = B.filter (f . w2c)
+filter f = VS.filter (f . w2c)
 {-# INLINE filter #-}
 
 -- | /O(n)/ The 'find' function takes a predicate and a ByteString,
 -- and returns the first element in matching the predicate, or 'Nothing'
 -- if there is no such element.
 find :: (Char -> Bool) -> ByteString -> Maybe Char
-find f ps = w2c `fmap` B.find (f . w2c) ps
+find f ps = w2c `fmap` VS.find (f . w2c) ps
 {-# INLINE find #-}
 
 -- | /O(n)/ 'zip' takes two ByteStrings and returns a list of
@@ -719,9 +718,9 @@ find f ps = w2c `fmap` B.find (f . w2c) ps
 -- usage may be large for multi-megabyte ByteStrings
 zip :: ByteString -> ByteString -> [(Char,Char)]
 zip ps qs
-    | B.null ps || B.null qs = []
+    | VS.null ps || VS.null qs = []
     | otherwise = (unsafeHead ps, unsafeHead qs)
-                : zip (BU.unsafeTail ps) (BU.unsafeTail qs)
+                : zip (VS.unsafeTail ps) (VS.unsafeTail qs)
 
 -- | 'zipWith' generalises 'zip' by zipping with the function given as
 -- the first argument, instead of a tupling function.  For example,
@@ -741,7 +740,7 @@ unzip ls = (pack (L.map fst ls), pack (L.map snd ls))
 -- there is an obligation on the programmer to provide a proof that the
 -- ByteString is non-empty.
 unsafeHead :: ByteString -> Char
-unsafeHead  = w2c . BU.unsafeHead
+unsafeHead  = w2c . VS.unsafeHead
 {-# INLINE unsafeHead #-}
 
 -- ---------------------------------------------------------------------
@@ -760,14 +759,14 @@ unsafeHead  = w2c . BU.unsafeHead
 breakSpace :: ByteString -> (ByteString,ByteString)
 breakSpace v = unsafeInlineIO $ withForeignPtr fp $ \p ->
     let go !i
-            | i >= l    = return (vec l, B.empty)
+            | i >= l    = return (vec l, VS.empty)
             | otherwise = do
                 w <- peekByteOff p i
                 if (not . isSpaceWord8) w
                   then go (i+1)
                   else return $!
                        if i == 0
-                       then (B.empty, vec l)
+                       then (VS.empty, vec l)
                        else (vec i, VS.unsafeFromForeignPtr fp i (l-i))
     in go 0
         where
@@ -784,7 +783,7 @@ breakSpace v = unsafeInlineIO $ withForeignPtr fp $ \p ->
 dropSpace :: ByteString -> ByteString
 dropSpace v = unsafeInlineIO $ withForeignPtr fp $ \p ->
     let go !i
-            | i >= l    = return B.empty
+            | i >= l    = return VS.empty
             | otherwise = do
                 w <- peekElemOff p i
                 if isSpaceWord8 w
@@ -799,23 +798,24 @@ dropSpace v = unsafeInlineIO $ withForeignPtr fp $ \p ->
 -- newline Chars. The resulting strings do not contain newlines.
 lines :: ByteString -> [ByteString]
 lines ps
-    | B.null ps = []
+    | VS.null ps = []
     | otherwise = case search ps of
              Nothing -> [ps]
-             Just n  -> BU.unsafeTake n ps : lines (BU.unsafeDrop (n+1) ps)
+             Just n  -> VS.unsafeTake n ps : lines (VS.unsafeDrop (n+1) ps)
     where search = elemIndex '\n'
 
 -- | 'unlines' is an inverse operation to 'lines'.  It joins lines,
 -- after appending a terminating newline to each.
 unlines :: [ByteString] -> ByteString
-unlines [] = B.empty
-unlines ss = B.concat (L.intersperse nl ss) `B.append` nl -- half as much space
-    where nl = singleton '\n'
+unlines [] = VS.empty
+unlines ss = (VS.concat (L.intersperse (VS.singleton nl) ss)) `VS.snoc` nl
+    where
+      nl = c2w '\n'
 
 -- | 'words' breaks a ByteString up into a list of words, which
 -- were delimited by Chars representing white space.
 words :: ByteString -> [ByteString]
-words = L.filter (not . B.null) . B.splitWith isSpaceWord8
+words = L.filter (not . VS.null) . B.splitWith isSpaceWord8
 {-# INLINE words #-}
 
 -- | The 'unwords' function is analogous to the 'unlines' function, on words.
@@ -831,22 +831,22 @@ unwords = B.intercalate (singleton ' ')
 -- it just returns the int read, and the rest of the string.
 readInt :: ByteString -> Maybe (Int, ByteString)
 readInt as
-    | B.null as = Nothing
+    | VS.null as = Nothing
     | otherwise =
         case unsafeHead as of
-            '-' -> loop True  0 0 (BU.unsafeTail as)
-            '+' -> loop False 0 0 (BU.unsafeTail as)
+            '-' -> loop True  0 0 (VS.unsafeTail as)
+            '+' -> loop False 0 0 (VS.unsafeTail as)
             _   -> loop False 0 0 as
 
     where loop :: Bool -> Int -> Int -> ByteString -> Maybe (Int, ByteString)
           loop !neg !i !n !ps
-              | B.null ps = end neg i n ps
+              | VS.null ps = end neg i n ps
               | otherwise =
-                  case BU.unsafeHead ps of
+                  case VS.unsafeHead ps of
                     w | w >= 0x30
                      && w <= 0x39 -> loop neg (i+1)
                                           (n * 10 + (fromIntegral w - 0x30))
-                                          (BU.unsafeTail ps)
+                                          (VS.unsafeTail ps)
                       | otherwise -> end neg i n ps
 
           end _    0 _ _  = Nothing
@@ -858,33 +858,33 @@ readInt as
 -- otherwise it just returns the int read, and the rest of the string.
 readInteger :: ByteString -> Maybe (Integer, ByteString)
 readInteger as
-    | B.null as = Nothing
+    | VS.null as = Nothing
     | otherwise =
         case unsafeHead as of
-            '-' -> first (BU.unsafeTail as) >>= \(n, bs) -> return (-n, bs)
-            '+' -> first (BU.unsafeTail as)
+            '-' -> first (VS.unsafeTail as) >>= \(n, bs) -> return (-n, bs)
+            '+' -> first (VS.unsafeTail as)
             _   -> first as
 
-    where first ps | B.null ps = Nothing
+    where first ps | VS.null ps = Nothing
                    | otherwise =
-                       case BU.unsafeHead ps of
+                       case VS.unsafeHead ps of
                         w | w >= 0x30 && w <= 0x39 -> Just $
-                            loop 1 (fromIntegral w - 0x30) [] (BU.unsafeTail ps)
+                            loop 1 (fromIntegral w - 0x30) [] (VS.unsafeTail ps)
                           | otherwise              -> Nothing
 
           loop :: Int -> Int -> [Integer]
                -> ByteString -> (Integer, ByteString)
           loop !d !acc !ns !ps
-              | B.null ps = combine d acc ns B.empty
+              | VS.null ps = combine d acc ns VS.empty
               | otherwise =
-                  case BU.unsafeHead ps of
+                  case VS.unsafeHead ps of
                    w | w >= 0x30 && w <= 0x39 ->
                        if d == 9 then loop 1 (fromIntegral w - 0x30)
                                            (toInteger acc : ns)
-                                           (BU.unsafeTail ps)
+                                           (VS.unsafeTail ps)
                                  else loop (d+1)
                                            (10*acc + (fromIntegral w - 0x30))
-                                           ns (BU.unsafeTail ps)
+                                           ns (VS.unsafeTail ps)
                      | otherwise -> combine d acc ns ps
 
           combine _ acc [] ps = (toInteger acc, ps)
@@ -919,8 +919,9 @@ appendFile f txt = withFile f AppendMode $ \h -> B.hPut h txt
 -- | Write a ByteString to a handle, appending a newline byte
 hPutStrLn :: Handle -> ByteString -> IO ()
 hPutStrLn h ps
-    | B.length ps < 1024 = B.hPut h (ps `B.snoc` 0x0a)
-    | otherwise          = B.hPut h ps >> B.hPut h (B.singleton (0x0a)) -- don't copy
+    | VS.length ps < 1024 = B.hPut h $ ps `VS.snoc` 0x0a
+    | otherwise           = do B.hPut h ps
+                               B.hPut h $ VS.singleton 0x0a -- don't copy
 
 -- | Write a ByteString to stdout, appending a newline byte
 putStrLn :: ByteString -> IO ()

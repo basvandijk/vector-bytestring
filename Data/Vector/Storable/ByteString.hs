@@ -256,8 +256,8 @@ import System.IO.Unsafe      ( unsafePerformIO )
 import System.IO.Error       ( ioError, mkIOError, illegalOperationErrorType )
 import Text.Show             ( show, showsPrec )
 
-import qualified Data.List as List ( intersperse, transpose, map, reverse )
-import           Data.List         ( (++) )
+import qualified Data.List as L ( intersperse, transpose, map, reverse )
+import           Data.List      ( (++) )
 
 import GHC.IO.Handle.Internals ( wantReadableHandle_, flushCharReadBuffer
                                , ioe_EOF
@@ -392,7 +392,7 @@ intersperse c v
 -- argument between each element of the list.
 {-# INLINE [1] intercalate #-}
 intercalate :: ByteString -> [ByteString] -> ByteString
-intercalate s = VS.concat . List.intersperse s
+intercalate s = VS.concat . L.intersperse s
 
 {-# RULES
 "ByteString specialise intercalate c -> intercalateByte" forall c s1 s2 .
@@ -417,9 +417,9 @@ intercalateWithByte c v1 v2 =
 -- | The 'transpose' function transposes the rows and columns of its
 -- 'ByteString' argument.
 transpose :: [ByteString] -> [ByteString]
-transpose = List.map VS.fromList
-          . List.transpose
-          . List.map VS.toList
+transpose = L.map VS.fromList
+          . L.transpose
+          . L.map VS.toList
 
 
 --------------------------------------------------------------------------------
@@ -1142,8 +1142,8 @@ zipWith' f v1 v2 =
 -- | /O(n)/ 'unzip' transforms a list of pairs of bytes into a pair of
 -- ByteStrings. Note that this performs two 'pack' operations.
 unzip :: [(Word8,Word8)] -> (ByteString,ByteString)
-unzip ls = ( VS.fromList $ List.map fst ls
-           , VS.fromList $ List.map snd ls
+unzip ls = ( VS.fromList $ L.map fst ls
+           , VS.fromList $ L.map snd ls
            )
 {-# INLINE unzip #-}
 
@@ -1359,7 +1359,7 @@ mkPS buf start end =
 
 mkBigPS :: Int -> [ByteString] -> IO ByteString
 mkBigPS _ [v] = return v
-mkBigPS _ vs  = return $! VS.concat (List.reverse vs)
+mkBigPS _ vs  = return $! VS.concat (L.reverse vs)
 
 -- | Outputs a 'ByteString' to the specified 'Handle'.
 hPut :: Handle -> ByteString -> IO ()

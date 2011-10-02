@@ -90,7 +90,7 @@ import Control.Monad.Primitive ( unsafeInlineIO )
 import qualified Data.Vector.Storable as VS
 
 -- from vector-bytestring (this package):
-import ForeignPtr ( mallocVector )
+import ForeignPtr ( mallocVector, unsafeFromForeignPtr0 )
 
 
 --------------------------------------------------------------------------------
@@ -144,7 +144,7 @@ create l f = do
   fp <- mallocVector l
   withForeignPtr fp $ \p -> do
     f p
-    return $! VS.unsafeFromForeignPtr fp 0 l
+    return $! unsafeFromForeignPtr0 fp l
 
 -- | A way of creating ByteStrings outside the IO monad. The @Int@
 -- argument gives the final size of the ByteString. Unlike
@@ -167,7 +167,7 @@ createAndTrim l f = do
   withForeignPtr fp $ \p -> do
     l' <- f p
     if assert (l' <= l) $ l' >= l
-      then return $! VS.unsafeFromForeignPtr fp 0 l
+      then return $! unsafeFromForeignPtr0 fp l
       else create l' $ \p' -> BI.memcpy p' p (fromIntegral l')
 {-# INLINE createAndTrim #-}
 
@@ -177,7 +177,7 @@ createAndTrim' l f = do
   withForeignPtr fp $ \p -> do
     (off, l', res) <- f p
     if assert (l' <= l) $ l' >= l
-      then return $! (VS.unsafeFromForeignPtr fp 0 l, res)
+      then return $! (unsafeFromForeignPtr0 fp l, res)
       else do v <- create l' $ \p' ->
                      BI.memcpy p' (p `plusPtr` off) (fromIntegral l')
               return $! (v, res)

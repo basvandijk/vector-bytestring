@@ -279,6 +279,8 @@ import qualified Data.Vector.Storable.ByteString.Unsafe   as BU
 
 import Data.Vector.Storable.ByteString ( ByteString )
 
+import ForeignPtr ( unsafeToForeignPtr0, unsafeFromForeignPtr0 )
+
 
 ------------------------------------------------------------------------
 
@@ -759,14 +761,14 @@ unsafeHead  = w2c . BU.unsafeHead
 breakSpace :: ByteString -> (ByteString,ByteString)
 breakSpace v = unsafeInlineIO $ withForeignPtr fp $ \p -> do
     i <- firstspace p 0 l
-    let vec = VS.unsafeFromForeignPtr fp
+    let vec = unsafeFromForeignPtr0 fp
     return $! case () of {_
-        | i == 0    -> (B.empty,   vec 0 l)
-        | i == l    -> (vec 0 l, B.empty)
-        | otherwise -> (vec 0 i, vec i (l-i))
+        | i == 0    -> (B.empty, vec l)
+        | i == l    -> (vec l, B.empty)
+        | otherwise -> (vec i, VS.unsafeFromForeignPtr fp i (l-i))
     }
     where
-      (fp, _, l) = VS.unsafeToForeignPtr v
+      (fp, l) = unsafeToForeignPtr0 v
 {-# INLINE breakSpace #-}
 
 firstspace :: Ptr Word8 -> Int -> Int -> IO Int
@@ -791,7 +793,7 @@ dropSpace v = unsafeInlineIO $ withForeignPtr fp $ \p -> do
               then B.empty
               else VS.unsafeFromForeignPtr fp i (l-i)
     where
-      (fp, _, l) = VS.unsafeToForeignPtr v
+      (fp, l) = unsafeToForeignPtr0 v
 {-# INLINE dropSpace #-}
 
 firstnonspace :: Ptr Word8 -> Int -> Int -> IO Int

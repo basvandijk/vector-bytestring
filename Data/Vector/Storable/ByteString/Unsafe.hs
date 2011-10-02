@@ -47,7 +47,7 @@ module Data.Vector.Storable.ByteString.Unsafe (
 import Data.Word          ( Word8 )
 import Data.Function      ( (.) )
 import Foreign.Ptr        ( castPtr )
-import Foreign.ForeignPtr ( newForeignPtr )
+import Foreign.ForeignPtr ( newForeignPtr, withForeignPtr )
 import Foreign.C.String   ( CString, CStringLen )
 import System.IO          ( IO )
 import Prelude            ( Int, fromIntegral, ($), ($!) )
@@ -66,6 +66,7 @@ import qualified Data.Vector.Storable as VS
 
 -- from vector-bytestring (this package):
 import Data.Vector.Storable.ByteString.Internal ( ByteString )
+import ForeignPtr ( unsafeToForeignPtr0, unsafeFromForeignPtr0 )
 
 
 --------------------------------------------------------------------------------
@@ -149,7 +150,9 @@ unsafeUseAsCString v ac = VS.unsafeWith v $ ac . castPtr
 -- @useAsCStringLen@, which makes a copy of the original @ByteString@.
 --
 unsafeUseAsCStringLen :: ByteString -> (CStringLen -> IO a) -> IO a
-unsafeUseAsCStringLen v f = VS.unsafeWith v $ \p -> f (castPtr p, VS.length v)
+unsafeUseAsCStringLen v f = withForeignPtr fp $ \p -> f (castPtr p, l)
+    where
+      (fp, l) = unsafeToForeignPtr0 v
 
 --------------------------------------------------------------------------------
 --  ** Converting CStrings to ByteStrings
@@ -168,7 +171,7 @@ unsafePackCString cstr = do
     let p = castPtr cstr
     fp <- newForeignPtr_ p
     l <- BI.c_strlen cstr
-    return $! VS.unsafeFromForeignPtr fp 0 (fromIntegral l)
+    return $! unsafeFromForeignPtr0 fp (fromIntegral l)
 
 -- | /O(1)/ Build a @ByteString@ from a @CStringLen@. This value will
 -- have /no/ finalizer associated with it, and will not be garbage
@@ -183,7 +186,7 @@ unsafePackCStringLen :: CStringLen -> IO ByteString
 unsafePackCStringLen (ptr, l) = do
     let p = castPtr ptr
     fp <- newForeignPtr_ p
-    return $! VS.unsafeFromForeignPtr fp 0 (fromIntegral l)
+    return $! unsafeFromForeignPtr0 fp (fromIntegral l)
 
 -- | /O(n)/ Build a @ByteString@ from a malloced @CString@. This value will
 -- have a @free(3)@ finalizer associated to it.
@@ -201,7 +204,7 @@ unsafePackMallocCString cstr = do
     let p = castPtr cstr
     fp <- newForeignPtr BI.c_free_finalizer p
     l <- BI.c_strlen cstr
-    return $! VS.unsafeFromForeignPtr fp 0 (fromIntegral l)
+    return $! unsafeFromForeignPtr0 fp (fromIntegral l)
 
 -- | /O(n)/ Pack a null-terminated sequence of bytes, pointed to by an
 -- Addr\# (an arbitrary machine address assumed to point outside the
@@ -234,7 +237,7 @@ unsafePackAddress addr# = do
 
     fp <- newForeignPtr_ p
     l <- BI.c_strlen cstr
-    return $! VS.unsafeFromForeignPtr fp 0 (fromIntegral l)
+    return $! unsafeFromForeignPtr0 fp (fromIntegral l)
 {-# INLINE unsafePackAddress #-}
 
 -- | /O(1)/ 'unsafePackAddressLen' provides constant-time construction of
@@ -259,7 +262,7 @@ unsafePackAddressLen l addr# = do
     let p :: Ptr Word8
         p = Ptr addr#
     fp <- newForeignPtr_ p
-    return $! VS.unsafeFromForeignPtr fp 0 (fromIntegral l)
+    return $! unsafeFromForeignPtr0 fp (fromIntegral l)
 {-# INLINE unsafePackAddressLen #-}
 
 -- | /O(1)/ Construct a 'ByteString' given a Ptr Word8 to a buffer, a
@@ -274,7 +277,7 @@ unsafePackAddressLen l addr# = do
 unsafePackCStringFinalizer :: Ptr Word8 -> Int -> IO () -> IO ByteString
 unsafePackCStringFinalizer p l f = do
     fp <- FC.newForeignPtr p f
-    return $! VS.unsafeFromForeignPtr fp 0 (fromIntegral l)
+    return $! unsafeFromForeignPtr0 fp (fromIntegral l)
 
 -- | Explicitly run the finaliser associated with a 'ByteString'.
 -- References to this value after finalisation may generate invalid memory
@@ -286,5 +289,5 @@ unsafePackCStringFinalizer p l f = do
 -- ever generated from the underlying byte array are no longer live.
 --
 unsafeFinalize :: ByteString -> IO ()
-unsafeFinalize v = let (fp, _, _) = VS.unsafeToForeignPtr v
+unsafeFinalize v = let (fp, _) = unsafeToForeignPtr0 v
                    in finalizeForeignPtr fp

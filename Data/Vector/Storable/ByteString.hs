@@ -304,6 +304,7 @@ empty = VS.empty
 -- | /O(1)/ Convert a 'Word8' into a 'ByteString'
 singleton :: Word8 -> ByteString
 singleton = VS.singleton
+{-# INLINE [1] singleton #-} -- Inline [1] for intercalate rule
 
 -- | /O(n)/ Convert a @['Word8']@ into a 'ByteString'.
 --
@@ -1441,6 +1442,13 @@ hPutStrLn :: Handle -> ByteString -> IO ()
 hPutStrLn h v
     | VS.length v < 1024 = hPut h (v `snoc` 0x0a)
     | otherwise          = hPut h v >> hPut h (singleton (0x0a)) -- don't copy
+
+{-# DEPRECATED hPutStrLn
+    "Use Data.Vector.Storable.ByteString.Char8.hPutStrLn instead. (Functions that rely on ASCII encodings belong in Data.Vector.Storable.ByteString.Char8)"
+  #-}
+{-# DEPRECATED putStrLn
+    "Use Data.Vector.Storable.ByteString.Char8.putStrLn instead. (Functions that rely on ASCII encodings belong in Data.Vector.Storable.ByteString.Char8)"
+  #-}
 
 -- | Read a 'ByteString' directly from the specified 'Handle'.  This
 -- is far more efficient than reading the characters into a 'String'

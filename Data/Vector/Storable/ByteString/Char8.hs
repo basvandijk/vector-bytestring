@@ -235,7 +235,6 @@ import Data.Maybe         ( Maybe(Nothing, Just) )
 import Data.Ord           ( (<), (<=), (>=) )
 import Data.String        ( String, IsString, fromString )
 import Data.Tuple         ( fst, snd )
-import Data.Word          ( Word8 )
 import Foreign.ForeignPtr ( withForeignPtr )
 import Foreign.Storable   ( peekElemOff, peekByteOff )
 import Prelude            ( Integer, fromIntegral, toInteger, negate
@@ -759,26 +758,22 @@ unsafeHead  = w2c . BU.unsafeHead
 -- > break isSpace == breakSpace
 --
 breakSpace :: ByteString -> (ByteString,ByteString)
-breakSpace v = unsafeInlineIO $ withForeignPtr fp $ \p -> do
-    i <- firstspace p 0 l
-    let vec = unsafeFromForeignPtr0 fp
-    return $! case () of {_
-        | i == 0    -> (B.empty, vec l)
-        | i == l    -> (vec l, B.empty)
-        | otherwise -> (vec i, VS.unsafeFromForeignPtr fp i (l-i))
-    }
-    where
-      (fp, l) = unsafeToForeignPtr0 v
+breakSpace v = unsafeInlineIO $ withForeignPtr fp $ \p ->
+    let go !i
+            | i >= l    = return (vec l, B.empty)
+            | otherwise = do
+                w <- peekByteOff p i
+                if (not . isSpaceWord8) w
+                  then go (i+1)
+                  else return $!
+                       if i == 0
+                       then (B.empty, vec l)
+                       else (vec i, VS.unsafeFromForeignPtr fp i (l-i))
+    in go 0
+        where
+          (fp, l) = unsafeToForeignPtr0 v
+          vec = unsafeFromForeignPtr0 fp
 {-# INLINE breakSpace #-}
-
-firstspace :: Ptr Word8 -> Int -> Int -> IO Int
-firstspace !ptr !n !m
-    | n >= m    = return n
-    | otherwise = do
-        w <- peekByteOff ptr n
-        if (not . isSpaceWord8) w
-          then firstspace ptr (n+1) m
-          else return n
 
 -- | 'dropSpace' efficiently returns the 'ByteString' argument with
 -- white space Chars removed from the front. It is more efficient than
@@ -787,22 +782,18 @@ firstspace !ptr !n !m
 -- > dropWhile isSpace == dropSpace
 --
 dropSpace :: ByteString -> ByteString
-dropSpace v = unsafeInlineIO $ withForeignPtr fp $ \p -> do
-    i <- firstnonspace p 0 l
-    return $! if i == l
-              then B.empty
-              else VS.unsafeFromForeignPtr fp i (l-i)
-    where
-      (fp, l) = unsafeToForeignPtr0 v
+dropSpace v = unsafeInlineIO $ withForeignPtr fp $ \p ->
+    let go !i
+            | i >= l    = return B.empty
+            | otherwise = do
+                w <- peekElemOff p i
+                if isSpaceWord8 w
+                  then go (i+1)
+                  else return $ VS.unsafeFromForeignPtr fp i (l-i)
+    in go 0
+        where
+          (fp, l) = unsafeToForeignPtr0 v
 {-# INLINE dropSpace #-}
-
-firstnonspace :: Ptr Word8 -> Int -> Int -> IO Int
-firstnonspace !ptr !n !m
-    | n >= m    = return n
-    | otherwise = do w <- peekElemOff ptr n
-                     if isSpaceWord8 w
-                       then firstnonspace ptr (n+1) m
-                       else return n
 
 -- | 'lines' breaks a ByteString up into a list of ByteStrings at
 -- newline Chars. The resulting strings do not contain newlines.

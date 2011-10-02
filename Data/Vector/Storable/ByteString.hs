@@ -1,7 +1,8 @@
-{-# LANGUAGE CPP
-           , NoImplicitPrelude
+{-# LANGUAGE NoImplicitPrelude
            , BangPatterns
            , NamedFieldPuns
+           , MagicHash
+           , UnboxedTuples
   #-}
 
 {-# OPTIONS_GHC -fno-warn-name-shadowing #-}
@@ -256,8 +257,9 @@ import System.IO.Unsafe      ( unsafePerformIO )
 import System.IO.Error       ( ioError, mkIOError, illegalOperationErrorType )
 import Text.Show             ( show, showsPrec )
 
-import qualified Data.List as L ( intersperse, transpose, map, reverse )
-import           Data.List      ( (++) )
+import qualified Data.List as L
+    ( intersperse, transpose, map, reverse, length )
+import Data.List ( (++) )
 
 import GHC.IO.Handle.Internals ( wantReadableHandle_, flushCharReadBuffer
                                , ioe_EOF
@@ -267,6 +269,13 @@ import GHC.IO.Buffer           ( RawBuffer, Buffer(Buffer), bufRaw, bufL, bufR
                                , withRawBuffer, isEmptyBuffer, readWord8Buf
                                )
 import GHC.IO.BufferedIO as Buffered ( fillReadBuffer )
+
+import GHC.Base                ( build )
+import GHC.IO                  ( stToIO )
+import GHC.Prim                ( (+#), writeWord8OffAddr# )
+import GHC.Ptr                 ( Ptr(..) )
+import GHC.ST                  ( ST(..) )
+import GHC.Word                ( Word8(W8#) )
 
 -- from primitive:
 import Control.Monad.Primitive ( unsafeInlineIO )
@@ -301,11 +310,52 @@ singleton = VS.singleton
 -- For applications with large numbers of string literals, pack can be a
 -- bottleneck. In such cases, consider using packAddress (GHC only).
 pack :: [Word8] -> ByteString
-pack = VS.fromList
+pack str = unsafeCreate (L.length str) $ \(Ptr p) -> stToIO $
+           let go _ []           = return ()
+               go i (W8# c : cs) = writeByte i c >> go (i +# 1#) cs
+
+               writeByte i c = ST $ \s# ->
+                 case writeWord8OffAddr# p i c s# of
+                   s2# -> (# s2#, () #)
+           in go 0# str
 
 -- | /O(n)/ Converts a 'ByteString' to a @['Word8']@.
 unpack :: ByteString -> [Word8]
-unpack = VS.toList
+unpack v = build (unpackFoldr v)
+{-# INLINE unpack #-}
+
+-- Have unpack fuse with good list consumers
+--
+-- critical this isn't strict in the acc
+-- as it will break in the presence of list fusion. this is a known
+-- issue with seq and build/foldr rewrite rules, which rely on lazy
+-- demanding to avoid bottoms in the list.
+--
+unpackFoldr :: ByteString -> (Word8 -> a -> a) -> a -> a
+unpackFoldr v f ch = unsafeInlineIO $ withForeignPtr fp $ \p ->
+    let go (-1) acc = return acc
+        go !n   acc = do
+           a <- peekByteOff p n
+           go (n-1) (a `f` acc)
+    in go (l-1) ch
+        where
+          (fp, l) = unsafeToForeignPtr0 v
+{-# INLINE [0] unpackFoldr #-}
+
+unpackList :: ByteString -> [Word8]
+unpackList v = unsafeInlineIO $ withForeignPtr fp $ \p ->
+    let go (-1) !acc = return acc
+        go !n   !acc = do
+           a <- peekByteOff p n
+           go (n-1) (a : acc)
+    in go (l-1) []
+        where
+          (fp, l) = unsafeToForeignPtr0 v
+
+{-# RULES
+"ByteString unpack-list" [1]  forall p  .
+    unpackFoldr p (:) [] = unpackList p
+ #-}
 
 
 --------------------------------------------------------------------------------
@@ -1373,17 +1423,12 @@ hPut h v
 -- Note: on Windows and with Haskell implementation other than GHC, this
 -- function does not work correctly; it behaves identically to 'hPut'.
 --
-#if defined(__GLASGOW_HASKELL__)
 hPutNonBlocking :: Handle -> ByteString -> IO ByteString
 hPutNonBlocking h v = do
   bytesWritten <- withForeignPtr fp $ \p-> hPutBufNonBlocking h p l
   return $! VS.drop bytesWritten v
       where
         (fp, l) = unsafeToForeignPtr0 v
-#else
-hPutNonBlocking :: Handle -> B.ByteString -> IO Int
-hPutNonBlocking h v = hPut h v >> return VS.empty
-#endif
 
 -- | A synonym for @hPut@, for compatibility
 hPutStr :: Handle -> ByteString -> IO ()
@@ -1429,23 +1474,7 @@ hGetNonBlocking h i
 --
 hGetSome :: Handle -> Int -> IO ByteString
 hGetSome hh i
-#if MIN_VERSION_base(4,3,0)
-    | i > 0 = createAndTrim i $ \p -> hGetBufSome hh p i
-#else
-    | i > 0 = let
-               loop = do
-                 v <- hGetNonBlocking hh i
-                 if not (VS.null v)
-                   then return v
-                   else do eof <- hIsEOF hh
-                           if eof
-                             then return v
-                             else hWaitForInput hh (-1) >> loop
-                                  -- for this to work correctly, the
-                                  -- Handle should be in binary mode
-                                  -- (see GHC ticket #3808)
-              in loop
-#endif
+    | i > 0     = createAndTrim i $ \p -> hGetBufSome hh p i
     | i == 0    = return VS.empty
     | otherwise = illegalBufferSize hh "hGetSome" i
 

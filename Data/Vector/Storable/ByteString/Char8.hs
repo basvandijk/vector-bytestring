@@ -1,13 +1,10 @@
-{-# LANGUAGE CPP
-           , NoImplicitPrelude
+{-# LANGUAGE NoImplicitPrelude
            , BangPatterns
            , TypeSynonymInstances
            , FlexibleInstances
+           , MagicHash
+           , UnboxedTuples
   #-}
-
-#if defined(__GLASGOW_HASKELL__)
-{-# LANGUAGE MagicHash, UnboxedTuples #-}
-#endif
 
 {-# OPTIONS_GHC -fno-warn-orphans #-}
 
@@ -226,7 +223,7 @@ module Data.Vector.Storable.ByteString.Char8 (
 -- from base:
 import Control.Monad      ( (>>=), (>>), return )
 import Data.Bool          ( Bool(False, True), (&&), (||), not, otherwise )
-import Data.Char          ( isSpace )
+import Data.Char          ( Char, isSpace )
 import Data.Eq            ( (==) )
 import Data.Function      ( (.), ($) )
 import Data.Functor       ( fmap )
@@ -245,22 +242,13 @@ import System.IO          ( IO, FilePath, Handle
                           , withFile, stdout, hFileSize
                           )
 
-import qualified Data.List as L ( length, map, intersperse, filter )
+import GHC.Base           ( Char(..), unpackCString#, ord#, int2Word# )
+import GHC.IO             ( stToIO )
+import GHC.Prim           ( Addr#, writeWord8OffAddr#, plusAddr# )
+import GHC.Ptr            ( Ptr(..) )
+import GHC.ST             ( ST(..) )
 
-#if defined(__GLASGOW_HASKELL__)
-import GHC.Base                 (Char(..),unpackCString#,ord#,int2Word#)
-#if __GLASGOW_HASKELL__ >= 611
-import GHC.IO                   (stToIO)
-#else
-import GHC.IOBase               (stToIO)
-#endif
-import GHC.Prim                 (Addr#,writeWord8OffAddr#,plusAddr#)
-import GHC.Ptr                  (Ptr(..))
-import GHC.ST                   (ST(..))
-#else
-import Foreign.Ptr ( plusPtr )
-import Data.Char   ( Char )
-#endif
+import qualified Data.List as L ( length, map, intersperse, filter )
 
 -- from vector:
 import qualified Data.Vector.Storable as VS
@@ -296,14 +284,6 @@ instance IsString ByteString where
 -- For applications with large numbers of string literals, pack can be a
 -- bottleneck.
 pack :: String -> ByteString
-#if !defined(__GLASGOW_HASKELL__)
-
-pack str = BI.unsafeCreate (L.length str) $ \p -> go p str
-    where go _ []     = return ()
-          go p (x:xs) = poke p (c2w x) >> go (p `plusPtr` 1) xs
-
-#else /* hack away */
-
 pack str = BI.unsafeCreate (L.length str) $ \(Ptr p) -> stToIO (go p str)
   where
     go :: Addr# -> [Char] -> ST a ()
@@ -319,8 +299,6 @@ pack str = BI.unsafeCreate (L.length str) $ \(Ptr p) -> stToIO (go p str)
 "ByteString pack/packAddress" forall s .
    pack (unpackCString# s) = unsafeInlineIO (BU.unsafePackAddress s)
  #-}
-
-#endif
 
 -- | /O(n)/ Converts a 'ByteString' to a 'String'.
 unpack :: ByteString -> [Char]

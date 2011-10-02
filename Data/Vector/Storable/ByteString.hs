@@ -698,11 +698,13 @@ splitAt = VS.splitAt
 -- returns the longest prefix (possibly empty) of @xs@ of elements that
 -- satisfy @p@.
 takeWhile :: (Word8 -> Bool) -> ByteString -> ByteString
-takeWhile = VS.takeWhile
+takeWhile f v = VS.unsafeTake (findIndexOrEnd (not . f) v) v
+{-# INLINE takeWhile #-}
 
 -- | 'dropWhile' @p xs@ returns the suffix remaining after 'takeWhile' @p xs@.
 dropWhile :: (Word8 -> Bool) -> ByteString -> ByteString
-dropWhile = VS.dropWhile
+dropWhile f v = VS.unsafeDrop (findIndexOrEnd (not . f) v) v
+{-# INLINE dropWhile #-}
 
 -- | 'span' @p xs@ breaks the ByteString into two segments. It is
 -- equivalent to @('takeWhile' p xs, 'dropWhile' p xs)@
@@ -760,7 +762,9 @@ spanEnd p v = VS.splitAt (findFromEndUntil (not . p) v) v
 -- > break (==x) = breakByte x
 --
 break :: (Word8 -> Bool) -> ByteString -> (ByteString, ByteString)
-break = VS.break
+break p v = (VS.unsafeTake n v, VS.unsafeDrop n v)
+    where
+      !n = findIndexOrEnd p v
 {-# INLINE [1] break #-}
 
 -- This RULE LHS is not allowed by ghc-6.4
@@ -813,22 +817,6 @@ groupBy  k xs
     | otherwise  = VS.unsafeTake n xs : groupBy k (VS.unsafeDrop n xs)
     where
       n = 1 + findIndexOrEnd (not . k (VS.unsafeHead xs)) (VS.unsafeTail xs)
-
--- | 'findIndexOrEnd' is a variant of findIndex, that returns the length
--- of the string if no element is found, rather than Nothing.
-findIndexOrEnd :: (Word8 -> Bool) -> ByteString -> Int
-findIndexOrEnd k v = unsafeInlineIO $  withForeignPtr fp $ \p ->
-  let end = p `plusPtr` l
-      go !ptr | ptr == end = return l
-              | otherwise = do
-                  w <- peek ptr
-                  if k w
-                    then return (ptr `minusPtr` p)
-                    else go (ptr `plusPtr` 1)
-  in go p
-    where
-      (fp, l) = unsafeToForeignPtr0 v
-{-# INLINE findIndexOrEnd #-}
 
 -- | /O(n)/ Return all initial segments of the given 'ByteString', shortest first.
 inits :: ByteString -> [ByteString]
@@ -1536,7 +1524,23 @@ hGetContents h = always (hClose h) $ do -- strict, so hClose
 -- Utils
 --------------------------------------------------------------------------------
 
--- Find from the end of the string using predicate
+-- | 'findIndexOrEnd' is a variant of findIndex, that returns the length
+-- of the string if no element is found, rather than Nothing.
+findIndexOrEnd :: (Word8 -> Bool) -> ByteString -> Int
+findIndexOrEnd k v = unsafeInlineIO $  withForeignPtr fp $ \p ->
+  let end = p `plusPtr` l
+      go !ptr | ptr == end = return l
+              | otherwise = do
+                  w <- peek ptr
+                  if k w
+                    then return (ptr `minusPtr` p)
+                    else go (ptr `plusPtr` 1)
+  in go p
+    where
+      (fp, l) = unsafeToForeignPtr0 v
+{-# INLINE findIndexOrEnd #-}
+
+-- | Find from the end of the string using predicate
 findFromEndUntil :: (Word8 -> Bool) -> ByteString -> Int
 findFromEndUntil pred = go
     where

@@ -244,7 +244,7 @@ import System.IO          ( IO, FilePath, Handle
 
 import GHC.Base           ( Char(..), unpackCString#, ord#, int2Word# )
 import GHC.IO             ( stToIO )
-import GHC.Prim           ( Addr#, writeWord8OffAddr#, plusAddr# )
+import GHC.Prim           ( Addr#, plusAddr#, writeWord8OffAddr# )
 import GHC.Ptr            ( Ptr(..) )
 import GHC.ST             ( ST(..) )
 
@@ -259,9 +259,9 @@ import Control.Monad.Primitive ( unsafeInlineIO )
 -- from vector-bytestring (this package):
 import Data.Vector.Storable.ByteString.Internal ( c2w, w2c, isSpaceWord8 )
 
-import qualified Data.Vector.Storable.ByteString          as B
-import qualified Data.Vector.Storable.ByteString.Internal as BI ( unsafeCreate )
-import qualified Data.Vector.Storable.ByteString.Unsafe   as BU ( unsafePackAddress )
+import qualified Data.Vector.Storable.ByteString as B
+import Data.Vector.Storable.ByteString.Internal ( unsafeCreate )
+import Data.Vector.Storable.ByteString.Unsafe   ( unsafePackAddress )
 
 import Data.Vector.Storable.ByteString ( ByteString )
 
@@ -284,20 +284,21 @@ instance IsString ByteString where
 -- For applications with large numbers of string literals, pack can be a
 -- bottleneck.
 pack :: String -> ByteString
-pack str = BI.unsafeCreate (L.length str) $ \(Ptr p) -> stToIO (go p str)
-  where
-    go :: Addr# -> [Char] -> ST a ()
-    go _ []        = return ()
-    go p (C# c:cs) = writeByte p (int2Word# (ord# c)) >> go (p `plusAddr#` 1#) cs
-
-    writeByte p c = ST $ \s# ->
-        case writeWord8OffAddr# p 0# c s# of s2# -> (# s2#, () #)
-    {-# INLINE writeByte #-}
+pack str = unsafeCreate (L.length str) $ \(Ptr p) -> stToIO (go p str)
+    where
+      go :: Addr# -> [Char] -> ST a ()
+      go _ []          = return ()
+      go p (C# c : cs) = writeByte >> go (p `plusAddr#` 1#) cs
+          where
+            writeByte = ST $ \s# ->
+              case writeWord8OffAddr# p 0# (int2Word# (ord# c)) s# of
+                s2# -> (# s2#, () #)
+            {-# INLINE writeByte #-}
 {-# INLINE [1] pack #-}
 
 {-# RULES
 "ByteString pack/packAddress" forall s .
-   pack (unpackCString# s) = unsafeInlineIO (BU.unsafePackAddress s)
+   pack (unpackCString# s) = unsafeInlineIO (unsafePackAddress s)
  #-}
 
 -- | /O(n)/ Converts a 'ByteString' to a 'String'.

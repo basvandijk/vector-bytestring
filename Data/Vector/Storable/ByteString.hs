@@ -272,7 +272,7 @@ import GHC.IO.BufferedIO as Buffered ( fillReadBuffer )
 
 import GHC.Base                ( build )
 import GHC.IO                  ( stToIO )
-import GHC.Prim                ( (+#), writeWord8OffAddr# )
+import GHC.Prim                ( Addr#, plusAddr#, writeWord8OffAddr# )
 import GHC.Ptr                 ( Ptr(..) )
 import GHC.ST                  ( ST(..) )
 import GHC.Word                ( Word8(W8#) )
@@ -310,14 +310,16 @@ singleton = VS.singleton
 -- For applications with large numbers of string literals, pack can be a
 -- bottleneck. In such cases, consider using packAddress (GHC only).
 pack :: [Word8] -> ByteString
-pack str = unsafeCreate (L.length str) $ \(Ptr p) -> stToIO $
-           let go _ []           = return ()
-               go i (W8# c : cs) = writeByte i c >> go (i +# 1#) cs
-
-               writeByte i c = ST $ \s# ->
-                 case writeWord8OffAddr# p i c s# of
-                   s2# -> (# s2#, () #)
-           in go 0# str
+pack str = unsafeCreate (L.length str) $ \(Ptr p) -> stToIO (go p str)
+    where
+      go :: Addr# -> [Word8] -> ST a ()
+      go _ []           = return ()
+      go p (W8# c : cs) = writeByte >> go (p `plusAddr#` 1#) cs
+          where
+            writeByte = ST $ \s# ->
+              case writeWord8OffAddr# p 0# c s# of
+                s2# -> (# s2#, () #)
+            {-# INLINE writeByte #-}
 
 -- | /O(n)/ Converts a 'ByteString' to a @['Word8']@.
 unpack :: ByteString -> [Word8]
@@ -857,14 +859,14 @@ tails v | VS.null v = [VS.empty]
 --
 split :: Word8 -> ByteString -> [ByteString]
 split w v | l == 0    = []
-          | otherwise = loop 0
+          | otherwise = go 0
     where
       (fp, l) = unsafeToForeignPtr0 v
 
       withFP = unsafeInlineIO . withForeignPtr fp
 
-      loop !n | q == nullPtr = vec l'    : []
-              | otherwise    = vec (i-n) : loop (i+1)
+      go !n | q == nullPtr = vec l'    : []
+            | otherwise    = vec (i-n) : go (i+1)
           where
             vec = VS.unsafeFromForeignPtr fp n
 
@@ -891,15 +893,15 @@ splitWith pred v
 
       splitWith0 off len = unsafeInlineIO $ withForeignPtr fp $ \p ->
         let vec = VS.unsafeFromForeignPtr fp off
-            splitLoop idx
+            go !idx
                 | idx >= len = return [vec idx]
                 | otherwise = do
                     let sepIx = off + idx
                     w <- peekElemOff p sepIx
                     if pred w
                       then return (vec idx : splitWith0 (sepIx+1) (len-idx-1))
-                      else splitLoop (idx+1)
-        in splitLoop 0
+                      else go (idx+1)
+        in go 0
 {-# INLINE splitWith #-}
 
 

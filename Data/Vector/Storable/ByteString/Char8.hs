@@ -269,6 +269,8 @@ import ForeignPtr ( unsafeToForeignPtr0, unsafeFromForeignPtr0 )
 
 
 ------------------------------------------------------------------------
+-- * Introducing and eliminating ByteStrings
+------------------------------------------------------------------------
 
 -- | /O(1)/ Convert a 'Char' into a 'ByteString'
 singleton :: Char -> ByteString
@@ -306,6 +308,11 @@ unpack :: ByteString -> [Char]
 unpack = L.map w2c . B.unpack
 {-# INLINE unpack #-}
 
+
+------------------------------------------------------------------------
+-- * Basic interface
+------------------------------------------------------------------------
+
 -- | /O(n)/ 'cons' is analogous to (:) for lists, but of different
 -- complexity, as it requires a memcpy.
 cons :: Char -> ByteString -> ByteString
@@ -318,21 +325,26 @@ snoc :: ByteString -> Char -> ByteString
 snoc p = VS.snoc p . c2w
 {-# INLINE snoc #-}
 
+-- | /O(1)/ Extract the first element of a ByteString, which must be non-empty.
+head :: ByteString -> Char
+head = w2c . VS.head
+{-# INLINE head #-}
+
 -- | /O(1)/ Extract the head and tail of a ByteString, returning Nothing
 -- if it is empty.
 uncons :: ByteString -> Maybe (Char, ByteString)
 uncons = fmap (\(w,v) -> (w2c w, v)) . B.uncons
 {-# INLINE uncons #-}
 
--- | /O(1)/ Extract the first element of a ByteString, which must be non-empty.
-head :: ByteString -> Char
-head = w2c . VS.head
-{-# INLINE head #-}
-
 -- | /O(1)/ Extract the last element of a packed string, which must be non-empty.
 last :: ByteString -> Char
 last = w2c . VS.last
 {-# INLINE last #-}
+
+
+------------------------------------------------------------------------
+-- * Transformating ByteStrings
+------------------------------------------------------------------------
 
 -- | /O(n)/ 'map' @f xs@ is the ByteString obtained by applying @f@ to each element of @xs@
 map :: (Char -> Char) -> ByteString -> ByteString
@@ -345,6 +357,11 @@ map f = VS.map (c2w . f . w2c)
 intersperse :: Char -> ByteString -> ByteString
 intersperse = B.intersperse . c2w
 {-# INLINE intersperse #-}
+
+
+------------------------------------------------------------------------
+-- * Reducing ByteStrings (folds)
+------------------------------------------------------------------------
 
 -- | 'foldl', applied to a binary operator, a starting value (typically
 -- the left-identity of the operator), and a ByteString, reduces the
@@ -392,6 +409,9 @@ foldr1' :: (Char -> Char -> Char) -> ByteString -> Char
 foldr1' f v = w2c (VS.foldr1' (\x y -> c2w (f (w2c x) (w2c y))) v)
 {-# INLINE foldr1' #-}
 
+------------------------------------------------------------------------
+-- ** Special folds
+
 -- | Map a function over a 'ByteString' and concatenate the results
 concatMap :: (Char -> ByteString) -> ByteString -> ByteString
 concatMap f = VS.concatMap (f . w2c)
@@ -419,25 +439,13 @@ minimum :: ByteString -> Char
 minimum = w2c . VS.minimum
 {-# INLINE minimum #-}
 
--- | The 'mapAccumL' function behaves like a combination of 'map' and
--- 'foldl'; it applies a function to each element of a ByteString,
--- passing an accumulating parameter from left to right, and returning a
--- final value of this accumulator together with the new list.
-mapAccumL :: (acc -> Char -> (acc, Char))
-          -> acc -> ByteString -> (acc, ByteString)
-mapAccumL f = B.mapAccumL $ \acc w ->
-                case f acc (w2c w) of
-                  (acc', c) -> (acc', c2w c)
 
--- | The 'mapAccumR' function behaves like a combination of 'map' and
--- 'foldr'; it applies a function to each element of a ByteString,
--- passing an accumulating parameter from right to left, and returning a
--- final value of this accumulator together with the new ByteString.
-mapAccumR :: (acc -> Char -> (acc, Char))
-          -> acc -> ByteString -> (acc, ByteString)
-mapAccumR f = B.mapAccumR $ \acc w ->
-                case f acc (w2c w) of
-                  (acc', c) -> (acc', c2w c)
+------------------------------------------------------------------------
+-- * Building ByteStrings
+------------------------------------------------------------------------
+
+------------------------------------------------------------------------
+-- ** Scans
 
 -- | 'scanl' is similar to 'foldl', but returns a list of successive
 -- reduced values from the left:
@@ -463,6 +471,32 @@ scanr f z = VS.scanr (\a b -> c2w (f (w2c a) (w2c b))) (c2w z)
 -- | 'scanr1' is a variant of 'scanr' that has no starting value argument.
 scanr1 :: (Char -> Char -> Char) -> ByteString -> ByteString
 scanr1 f = VS.scanr1 (\a b -> c2w (f (w2c a) (w2c b)))
+
+------------------------------------------------------------------------
+-- ** Accumulating maps
+
+-- | The 'mapAccumL' function behaves like a combination of 'map' and
+-- 'foldl'; it applies a function to each element of a ByteString,
+-- passing an accumulating parameter from left to right, and returning a
+-- final value of this accumulator together with the new list.
+mapAccumL :: (acc -> Char -> (acc, Char))
+          -> acc -> ByteString -> (acc, ByteString)
+mapAccumL f = B.mapAccumL $ \acc w ->
+                case f acc (w2c w) of
+                  (acc', c) -> (acc', c2w c)
+
+-- | The 'mapAccumR' function behaves like a combination of 'map' and
+-- 'foldr'; it applies a function to each element of a ByteString,
+-- passing an accumulating parameter from right to left, and returning a
+-- final value of this accumulator together with the new ByteString.
+mapAccumR :: (acc -> Char -> (acc, Char))
+          -> acc -> ByteString -> (acc, ByteString)
+mapAccumR f = B.mapAccumR $ \acc w ->
+                case f acc (w2c w) of
+                  (acc', c) -> (acc', c2w c)
+
+------------------------------------------------------------------------
+-- ** Generating and unfolding ByteStrings
 
 -- | /O(n)/ 'replicate' @n x@ is a ByteString of length @n@ with @x@
 -- the value of every element. The following holds:
@@ -501,6 +535,14 @@ unfoldrN n f w = B.unfoldrN n ((k `fmap`) . f) w
     where k (i,j) = (c2w i, j)
 {-# INLINE unfoldrN #-}
 
+
+------------------------------------------------------------------------
+-- * Substrings
+------------------------------------------------------------------------
+
+------------------------------------------------------------------------
+-- ** Breaking strings
+
 -- | 'takeWhile', applied to a predicate @p@ and a ByteString @xs@,
 -- returns the longest prefix (possibly empty) of @xs@ of elements that
 -- satisfy @p@.
@@ -518,31 +560,25 @@ dropWhile f = VS.dropWhile (f . w2c)
     dropWhile isSpace = dropSpace
   #-}
 
--- | 'break' @p@ is equivalent to @'span' ('not' . p)@.
-break :: (Char -> Bool) -> ByteString -> (ByteString, ByteString)
-break f = VS.break (f . w2c)
-{-# INLINE [1] break #-}
-
-{-# RULES
-"ByteString specialise break (x==)" forall x.
-    break ((==) x) = breakChar x
-"ByteString specialise break (==x)" forall x.
-    break (==x) = breakChar x
-  #-}
-
--- INTERNAL:
-
--- | 'breakChar' breaks its ByteString argument at the first occurence
--- of the specified char. It is more efficient than 'break' as it is
--- implemented with @memchr(3)@. I.e.
+-- | 'dropSpace' efficiently returns the 'ByteString' argument with
+-- white space Chars removed from the front. It is more efficient than
+-- calling dropWhile for removing whitespace. I.e.
 --
--- > break (=='c') "abcd" == breakChar 'c' "abcd"
+-- > dropWhile isSpace == dropSpace
 --
-breakChar :: Char -> ByteString -> (ByteString, ByteString)
-breakChar c p = case elemIndex c p of
-    Nothing -> (p, VS.empty)
-    Just n  -> (VS.unsafeTake n p, VS.unsafeDrop n p)
-{-# INLINE breakChar #-}
+dropSpace :: ByteString -> ByteString
+dropSpace v = unsafeInlineIO $ withForeignPtr fp $ \p ->
+    let go !i
+            | i >= l    = return VS.empty
+            | otherwise = do
+                w <- peekElemOff p i
+                if isSpaceWord8 w
+                  then go (i+1)
+                  else return $ VS.unsafeFromForeignPtr fp i (l-i)
+    in go 0
+        where
+          (fp, l) = unsafeToForeignPtr0 v
+{-# INLINE dropSpace #-}
 
 -- | 'span' @p xs@ breaks the ByteString into two segments. It is
 -- equivalent to @('takeWhile' p xs, 'dropWhile' p xs)@
@@ -565,12 +601,68 @@ spanEnd :: (Char -> Bool) -> ByteString -> (ByteString, ByteString)
 spanEnd f = B.spanEnd (f . w2c)
 {-# INLINE spanEnd #-}
 
+-- | 'break' @p@ is equivalent to @'span' ('not' . p)@.
+break :: (Char -> Bool) -> ByteString -> (ByteString, ByteString)
+break f = VS.break (f . w2c)
+{-# INLINE [1] break #-}
+
+{-# RULES
+"ByteString specialise break (x==)" forall x.
+    break ((==) x) = breakChar x
+"ByteString specialise break (==x)" forall x.
+    break (==x) = breakChar x
+  #-}
+
+-- | 'breakChar' breaks its ByteString argument at the first occurence
+-- of the specified char. It is more efficient than 'break' as it is
+-- implemented with @memchr(3)@. I.e.
+--
+-- > break (=='c') "abcd" == breakChar 'c' "abcd"
+--
+breakChar :: Char -> ByteString -> (ByteString, ByteString)
+breakChar c p = case elemIndex c p of
+    Nothing -> (p, VS.empty)
+    Just n  -> (VS.unsafeTake n p, VS.unsafeDrop n p)
+{-# INLINE breakChar #-}
+
+{-# RULES
+"ByteString specialise break -> breakSpace"
+    break isSpace = breakSpace
+  #-}
+
+-- | 'breakSpace' returns the pair of ByteStrings when the argument is
+-- broken at the first whitespace byte. I.e.
+--
+-- > break isSpace == breakSpace
+--
+breakSpace :: ByteString -> (ByteString,ByteString)
+breakSpace v = unsafeInlineIO $ withForeignPtr fp $ \p ->
+    let go !i
+            | i >= l    = return (vec l, VS.empty)
+            | otherwise = do
+                w <- peekByteOff p i
+                if (not . isSpaceWord8) w
+                  then go (i+1)
+                  else return $!
+                       if i == 0
+                       then (VS.empty, vec l)
+                       else (vec i, VS.unsafeFromForeignPtr fp i (l-i))
+    in go 0
+        where
+          (fp, l) = unsafeToForeignPtr0 v
+          vec = unsafeFromForeignPtr0 fp
+{-# INLINE breakSpace #-}
+
 -- | 'breakEnd' behaves like 'break' but from the end of the 'ByteString'
 --
 -- breakEnd p == spanEnd (not.p)
 breakEnd :: (Char -> Bool) -> ByteString -> (ByteString, ByteString)
 breakEnd f = B.breakEnd (f . w2c)
 {-# INLINE breakEnd #-}
+
+-- | The 'groupBy' function is the non-overloaded version of 'group'.
+groupBy :: (Char -> Char -> Bool) -> ByteString -> [ByteString]
+groupBy k = B.groupBy (\a b -> k (w2c a) (w2c b))
 
 -- | /O(n)/ Break a 'ByteString' into pieces separated by the byte
 -- argument, consuming the delimiter. I.e.
@@ -603,9 +695,77 @@ splitWith :: (Char -> Bool) -> ByteString -> [ByteString]
 splitWith f = B.splitWith (f . w2c)
 {-# INLINE splitWith #-} -- the inline makes a big difference here.
 
--- | The 'groupBy' function is the non-overloaded version of 'group'.
-groupBy :: (Char -> Char -> Bool) -> ByteString -> [ByteString]
-groupBy k = B.groupBy (\a b -> k (w2c a) (w2c b))
+------------------------------------------------------------------------
+-- ** Breaking into lines and words
+
+-- | 'lines' breaks a ByteString up into a list of ByteStrings at
+-- newline Chars. The resulting strings do not contain newlines.
+lines :: ByteString -> [ByteString]
+lines v
+    | VS.null v = []
+    | otherwise = case elemIndex '\n' v of
+        Nothing -> [v]
+        Just n  -> VS.unsafeTake n v : lines (VS.unsafeDrop (n+1) v)
+
+-- | 'words' breaks a ByteString up into a list of words, which
+-- were delimited by Chars representing white space.
+words :: ByteString -> [ByteString]
+words = L.filter (not . VS.null) . B.splitWith isSpaceWord8
+{-# INLINE words #-}
+
+-- | 'unlines' is an inverse operation to 'lines'.  It joins lines,
+-- after appending a terminating newline to each.
+unlines :: [ByteString] -> ByteString
+unlines [] = VS.empty
+unlines vs = VS.concat (L.intersperse (VS.singleton nl) vs) `VS.snoc` nl
+    where
+      nl = c2w '\n'
+
+-- | The 'unwords' function is analogous to the 'unlines' function, on words.
+unwords :: [ByteString] -> ByteString
+unwords = B.intercalate (singleton ' ')
+{-# INLINE unwords #-}
+
+
+------------------------------------------------------------------------
+-- * Searching ByteStrings
+------------------------------------------------------------------------
+
+------------------------------------------------------------------------
+-- ** Searching by equality
+
+-- | /O(n)/ 'elem' is the 'ByteString' membership predicate. This
+-- implementation uses @memchr(3)@.
+elem :: Char -> ByteString -> Bool
+elem c = VS.elem (c2w c)
+{-# INLINE elem #-}
+
+-- | /O(n)/ 'notElem' is the inverse of 'elem'
+notElem :: Char -> ByteString -> Bool
+notElem c = VS.notElem (c2w c)
+{-# INLINE notElem #-}
+
+------------------------------------------------------------------------
+-- ** Searching with a predicate
+
+-- | /O(n)/ The 'find' function takes a predicate and a ByteString,
+-- and returns the first element in matching the predicate, or 'Nothing'
+-- if there is no such element.
+find :: (Char -> Bool) -> ByteString -> Maybe Char
+find f v = w2c `fmap` VS.find (f . w2c) v
+{-# INLINE find #-}
+
+-- | /O(n)/ 'filter', applied to a predicate and a ByteString,
+-- returns a ByteString containing those characters that satisfy the
+-- predicate.
+filter :: (Char -> Bool) -> ByteString -> ByteString
+filter f = VS.filter (f . w2c)
+{-# INLINE filter #-}
+
+
+------------------------------------------------------------------------
+-- * Indexing ByteStrings
+------------------------------------------------------------------------
 
 -- | /O(1)/ 'ByteString' index (subscript) operator, starting from 0.
 index :: ByteString -> Int -> Char
@@ -619,6 +779,12 @@ elemIndex :: Char -> ByteString -> Maybe Int
 elemIndex = VS.elemIndex . c2w
 {-# INLINE elemIndex #-}
 
+-- | /O(n)/ The 'elemIndices' function extends 'elemIndex', by returning
+-- the indices of all elements equal to the query element, in ascending order.
+elemIndices :: Char -> ByteString -> [Int]
+elemIndices = B.elemIndices . c2w
+{-# INLINE elemIndices #-}
+
 -- | /O(n)/ The 'elemIndexEnd' function returns the last index of the
 -- element in the given 'ByteString' which is equal to the query
 -- element, or 'Nothing' if there is no such element. The following
@@ -630,12 +796,6 @@ elemIndex = VS.elemIndex . c2w
 elemIndexEnd :: Char -> ByteString -> Maybe Int
 elemIndexEnd = B.elemIndexEnd . c2w
 {-# INLINE elemIndexEnd #-}
-
--- | /O(n)/ The 'elemIndices' function extends 'elemIndex', by returning
--- the indices of all elements equal to the query element, in ascending order.
-elemIndices :: Char -> ByteString -> [Int]
-elemIndices = B.elemIndices . c2w
-{-# INLINE elemIndices #-}
 
 -- | The 'findIndex' function takes a predicate and a 'ByteString' and
 -- returns the index of the first element in the ByteString satisfying the predicate.
@@ -660,30 +820,10 @@ findIndices f = B.findIndices (f . w2c)
 count :: Char -> ByteString -> Int
 count c = B.count (c2w c)
 
--- | /O(n)/ 'elem' is the 'ByteString' membership predicate. This
--- implementation uses @memchr(3)@.
-elem :: Char -> ByteString -> Bool
-elem c = VS.elem (c2w c)
-{-# INLINE elem #-}
 
--- | /O(n)/ 'notElem' is the inverse of 'elem'
-notElem :: Char -> ByteString -> Bool
-notElem c = VS.notElem (c2w c)
-{-# INLINE notElem #-}
-
--- | /O(n)/ 'filter', applied to a predicate and a ByteString,
--- returns a ByteString containing those characters that satisfy the
--- predicate.
-filter :: (Char -> Bool) -> ByteString -> ByteString
-filter f = VS.filter (f . w2c)
-{-# INLINE filter #-}
-
--- | /O(n)/ The 'find' function takes a predicate and a ByteString,
--- and returns the first element in matching the predicate, or 'Nothing'
--- if there is no such element.
-find :: (Char -> Bool) -> ByteString -> Maybe Char
-find f v = w2c `fmap` VS.find (f . w2c) v
-{-# INLINE find #-}
+------------------------------------------------------------------------
+-- * Zipping and unzipping ByteStrings
+------------------------------------------------------------------------
 
 -- | /O(n)/ 'zip' takes two ByteStrings and returns a list of
 -- corresponding pairs of Chars. If one input ByteString is short,
@@ -709,96 +849,10 @@ unzip :: [(Char,Char)] -> (ByteString,ByteString)
 unzip ls = (pack (L.map fst ls), pack (L.map snd ls))
 {-# INLINE unzip #-}
 
--- | A variety of 'head' for non-empty ByteStrings. 'unsafeHead' omits
--- the check for the empty case, which is good for performance, but
--- there is an obligation on the programmer to provide a proof that the
--- ByteString is non-empty.
-unsafeHead :: ByteString -> Char
-unsafeHead  = w2c . VS.unsafeHead
-{-# INLINE unsafeHead #-}
 
--- ---------------------------------------------------------------------
--- Things that depend on the encoding
-
-{-# RULES
-"ByteString specialise break -> breakSpace"
-    break isSpace = breakSpace
-  #-}
-
--- | 'breakSpace' returns the pair of ByteStrings when the argument is
--- broken at the first whitespace byte. I.e.
---
--- > break isSpace == breakSpace
---
-breakSpace :: ByteString -> (ByteString,ByteString)
-breakSpace v = unsafeInlineIO $ withForeignPtr fp $ \p ->
-    let go !i
-            | i >= l    = return (vec l, VS.empty)
-            | otherwise = do
-                w <- peekByteOff p i
-                if (not . isSpaceWord8) w
-                  then go (i+1)
-                  else return $!
-                       if i == 0
-                       then (VS.empty, vec l)
-                       else (vec i, VS.unsafeFromForeignPtr fp i (l-i))
-    in go 0
-        where
-          (fp, l) = unsafeToForeignPtr0 v
-          vec = unsafeFromForeignPtr0 fp
-{-# INLINE breakSpace #-}
-
--- | 'dropSpace' efficiently returns the 'ByteString' argument with
--- white space Chars removed from the front. It is more efficient than
--- calling dropWhile for removing whitespace. I.e.
---
--- > dropWhile isSpace == dropSpace
---
-dropSpace :: ByteString -> ByteString
-dropSpace v = unsafeInlineIO $ withForeignPtr fp $ \p ->
-    let go !i
-            | i >= l    = return VS.empty
-            | otherwise = do
-                w <- peekElemOff p i
-                if isSpaceWord8 w
-                  then go (i+1)
-                  else return $ VS.unsafeFromForeignPtr fp i (l-i)
-    in go 0
-        where
-          (fp, l) = unsafeToForeignPtr0 v
-{-# INLINE dropSpace #-}
-
--- | 'lines' breaks a ByteString up into a list of ByteStrings at
--- newline Chars. The resulting strings do not contain newlines.
-lines :: ByteString -> [ByteString]
-lines v
-    | VS.null v = []
-    | otherwise = case search v of
-             Nothing -> [v]
-             Just n  -> VS.unsafeTake n v : lines (VS.unsafeDrop (n+1) v)
-    where search = elemIndex '\n'
-
--- | 'unlines' is an inverse operation to 'lines'.  It joins lines,
--- after appending a terminating newline to each.
-unlines :: [ByteString] -> ByteString
-unlines [] = VS.empty
-unlines vs = VS.concat (L.intersperse (VS.singleton nl) vs) `VS.snoc` nl
-    where
-      nl = c2w '\n'
-
--- | 'words' breaks a ByteString up into a list of words, which
--- were delimited by Chars representing white space.
-words :: ByteString -> [ByteString]
-words = L.filter (not . VS.null) . B.splitWith isSpaceWord8
-{-# INLINE words #-}
-
--- | The 'unwords' function is analogous to the 'unlines' function, on words.
-unwords :: [ByteString] -> ByteString
-unwords = B.intercalate (singleton ' ')
-{-# INLINE unwords #-}
-
--- ---------------------------------------------------------------------
--- Reading from ByteStrings
+------------------------------------------------------------------------
+-- * Reading from ByteStrings
+------------------------------------------------------------------------
 
 -- | readInt reads an Int from the beginning of the ByteString.  If there is no
 -- integer at the beginning of the string, it returns Nothing, otherwise
@@ -871,8 +925,20 @@ readInteger v
           combine2 b (n:m:ns) = let t = m*b + n in t `seq` (t : combine2 b ns)
           combine2 _ ns       = ns
 
+
 ------------------------------------------------------------------------
--- For non-binary text processing:
+-- * * I\/O with ByteStrings
+------------------------------------------------------------------------
+
+------------------------------------------------------------------------
+-- ** Standard input and output
+
+-- | Write a ByteString to stdout, appending a newline byte
+putStrLn :: ByteString -> IO ()
+putStrLn = hPutStrLn stdout
+
+------------------------------------------------------------------------
+-- ** Files
 
 -- | Read an entire file strictly into a 'ByteString'.  This is far more
 -- efficient than reading the characters into a 'String' and then using
@@ -890,15 +956,27 @@ writeFile f txt = withFile f WriteMode $ \h -> B.hPut h txt
 appendFile :: FilePath -> ByteString -> IO ()
 appendFile f txt = withFile f AppendMode $ \h -> B.hPut h txt
 
+------------------------------------------------------------------------
+-- ** I\/O with Handles
+
 -- | Write a ByteString to a handle, appending a newline byte
 hPutStrLn :: Handle -> ByteString -> IO ()
 hPutStrLn h v
     | VS.length v < 1024 = B.hPut h $ v `VS.snoc` nl
-    | otherwise          = do B.hPut h v
-                              B.hPut h $ VS.singleton nl -- don't copy
+    | otherwise = do B.hPut h v
+                     B.hPut h $ VS.singleton nl -- don't copy
     where
       nl = c2w '\n'
 
--- | Write a ByteString to stdout, appending a newline byte
-putStrLn :: ByteString -> IO ()
-putStrLn = hPutStrLn stdout
+
+------------------------------------------------------------------------
+-- * Utils
+------------------------------------------------------------------------
+
+-- | A variety of 'head' for non-empty ByteStrings. 'unsafeHead' omits
+-- the check for the empty case, which is good for performance, but
+-- there is an obligation on the programmer to provide a proof that the
+-- ByteString is non-empty.
+unsafeHead :: ByteString -> Char
+unsafeHead  = w2c . VS.unsafeHead
+{-# INLINE unsafeHead #-}

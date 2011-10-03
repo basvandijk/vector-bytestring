@@ -300,6 +300,7 @@ import ForeignPtr ( mallocVector, unsafeFromForeignPtr0, unsafeToForeignPtr0 )
 -- | /O(1)/ The empty 'ByteString'
 empty :: ByteString
 empty = VS.empty
+{-# INLINE empty #-}
 
 -- | /O(1)/ Convert a 'Word8' into a 'ByteString'
 singleton :: Word8 -> ByteString
@@ -321,6 +322,7 @@ pack str = unsafeCreate (L.length str) $ \(Ptr p) -> stToIO (go p str)
               case writeWord8OffAddr# p 0# c s# of
                 s2# -> (# s2#, () #)
             {-# INLINE writeByte #-}
+{-# INLINE pack #-}
 
 -- | /O(n)/ Converts a 'ByteString' to a @['Word8']@.
 unpack :: ByteString -> [Word8]
@@ -347,13 +349,14 @@ unpackFoldr v f ch = unsafeInlineIO $ withForeignPtr fp $ \p ->
 
 unpackList :: ByteString -> [Word8]
 unpackList v = unsafeInlineIO $ withForeignPtr fp $ \p ->
-    let go (-1) !acc = return acc
-        go !n   !acc = do
+    let go (-1) acc = return acc
+        go !n   acc = do
            a <- peekByteOff p n
            go (n-1) (a : acc)
     in go (l-1) []
         where
           (fp, l) = unsafeToForeignPtr0 v
+{-# INLINE unpackList #-}
 
 {-# RULES
 "ByteString unpack-list" [1]  forall p  .
@@ -369,50 +372,59 @@ unpackList v = unsafeInlineIO $ withForeignPtr fp $ \p ->
 -- complexity, as it requires a memcpy.
 cons :: Word8 -> ByteString -> ByteString
 cons = VS.cons
+{-# INLINE cons #-}
 
 -- | /O(n)/ Append a byte to the end of a 'ByteString'
 snoc :: ByteString -> Word8 -> ByteString
 snoc = VS.snoc
+{-# INLINE snoc #-}
 
 -- | /O(n)/ Append two ByteStrings
 append :: ByteString -> ByteString -> ByteString
 append = (VS.++)
+{-# INLINE append #-}
 
 -- | /O(1)/ Extract the first element of a ByteString, which must be non-empty.
 -- An exception will be thrown in the case of an empty ByteString.
 head :: ByteString -> Word8
 head = VS.head
+{-# INLINE head #-}
 
 -- | /O(1)/ Extract the elements after the head of a ByteString, which must be non-empty.
 -- An exception will be thrown in the case of an empty ByteString.
 tail :: ByteString -> ByteString
 tail = VS.tail
+{-# INLINE tail #-}
 
 -- | /O(1)/ Extract the head and tail of a ByteString, returning Nothing
 -- if it is empty.
-{-# INLINE uncons #-}
 uncons :: ByteString -> Maybe (Word8, ByteString)
 uncons v
     | VS.length v == 0 = Nothing
     | otherwise        = Just (VS.unsafeHead v, VS.unsafeTail v)
+{-# INLINE uncons #-}
 
 -- | /O(1)/ Extract the last element of a ByteString, which must be finite and non-empty.
 -- An exception will be thrown in the case of an empty ByteString.
 last :: ByteString -> Word8
 last = VS.last
+{-# INLINE last #-}
 
 -- | /O(1)/ Return all the elements of a 'ByteString' except the last one.
 -- An exception will be thrown in the case of an empty ByteString.
 init :: ByteString -> ByteString
 init = VS.init
+{-# INLINE init #-}
 
 -- | /O(1)/ Test whether a ByteString is empty.
 null :: ByteString -> Bool
 null = VS.null
+{-# INLINE null #-}
 
 -- | /O(1)/ 'length' returns the length of a ByteString as an 'Int'.
 length :: ByteString -> Int
 length = VS.length
+{-# INLINE length #-}
 
 
 --------------------------------------------------------------------------------
@@ -423,10 +435,12 @@ length = VS.length
 -- element of @xs@. This function is subject to array fusion.
 map :: (Word8 -> Word8) -> ByteString -> ByteString
 map = VS.map
+{-# INLINE map #-}
 
 -- | /O(n)/ 'reverse' @xs@ efficiently returns the elements of @xs@ in reverse order.
 reverse :: ByteString -> ByteString
 reverse = VS.reverse
+{-# INLINE reverse #-}
 
 -- | /O(n)/ The 'intersperse' function takes a 'Word8' and a
 -- 'ByteString' and \`intersperses\' that byte between the elements of
@@ -439,13 +453,14 @@ intersperse c v
                     c_intersperse p' p (fromIntegral l) c
     where
       (fp, l) = unsafeToForeignPtr0 v
+{-# INLINE intersperse #-}
 
 -- | /O(n)/ The 'intercalate' function takes a 'ByteString' and a list of
 -- 'ByteString's and concatenates the list after interspersing the first
 -- argument between each element of the list.
-{-# INLINE [1] intercalate #-}
 intercalate :: ByteString -> [ByteString] -> ByteString
 intercalate s = VS.concat . L.intersperse s
+{-# INLINE [1] intercalate #-}
 
 {-# RULES
 "ByteString specialise intercalate c -> intercalateByte" forall c s1 s2 .
@@ -454,7 +469,6 @@ intercalate s = VS.concat . L.intersperse s
 
 -- | /O(n)/ intercalateWithByte. An efficient way to join to two ByteStrings
 -- with a char. Around 4 times faster than the generalised join.
-{-# INLINE intercalateWithByte #-}
 intercalateWithByte :: Word8 -> ByteString -> ByteString -> ByteString
 intercalateWithByte c v1 v2 =
     unsafeCreate (l1 + l2 + 1) $ \ptr ->
@@ -466,6 +480,7 @@ intercalateWithByte c v1 v2 =
         where
           (fp1, l1) = unsafeToForeignPtr0 v1
           (fp2, l2) = unsafeToForeignPtr0 v2
+{-# INLINE intercalateWithByte #-}
 
 -- | The 'transpose' function transposes the rows and columns of its
 -- 'ByteString' argument.
@@ -473,6 +488,7 @@ transpose :: [ByteString] -> [ByteString]
 transpose = L.map VS.fromList
           . L.transpose
           . L.map VS.toList
+{-# INLINE transpose #-}
 
 
 --------------------------------------------------------------------------------
@@ -481,27 +497,35 @@ transpose = L.map VS.fromList
 
 foldl :: (a -> Word8 -> a) -> a -> ByteString -> a
 foldl = VS.foldl
+{-# INLINE foldl #-}
 
 foldl' :: (a -> Word8 -> a) -> a -> ByteString -> a
 foldl' = VS.foldl'
+{-# INLINE foldl' #-}
 
 foldl1 :: (Word8 -> Word8 -> Word8) -> ByteString -> Word8
 foldl1 = VS.foldl1
+{-# INLINE foldl1 #-}
 
 foldl1' :: (Word8 -> Word8 -> Word8) -> ByteString -> Word8
 foldl1' = VS.foldl1'
+{-# INLINE foldl1' #-}
 
 foldr :: (Word8 -> a -> a) -> a -> ByteString -> a
 foldr = VS.foldr
+{-# INLINE foldr #-}
 
 foldr' :: (Word8 -> a -> a) -> a -> ByteString -> a
 foldr' = VS.foldr'
+{-# INLINE foldr' #-}
 
 foldr1 :: (Word8 -> Word8 -> Word8) -> ByteString -> Word8
 foldr1 = VS.foldr1
+{-# INLINE foldr1 #-}
 
 foldr1' :: (Word8 -> Word8 -> Word8) -> ByteString -> Word8
 foldr1' = VS.foldr1'
+{-# INLINE foldr1' #-}
 
 --------------------------------------------------------------------------------
 -- ** Special folds
@@ -509,32 +533,38 @@ foldr1' = VS.foldr1'
 -- | /O(n)/ Concatenate a list of ByteStrings.
 concat :: [ByteString] -> ByteString
 concat = VS.concat
+{-# INLINE concat #-}
 
 -- | Map a function over a 'ByteString' and concatenate the results
 concatMap :: (Word8 -> ByteString) -> ByteString -> ByteString
 concatMap = VS.concatMap
+{-# INLINE concatMap #-}
 
 -- | /O(n)/ Applied to a predicate and a ByteString, 'any' determines if
 -- any element of the 'ByteString' satisfies the predicate.
 any :: (Word8 -> Bool) -> ByteString -> Bool
 any = VS.any
+{-# INLINE any #-}
 
 -- | /O(n)/ Applied to a predicate and a 'ByteString', 'all' determines
 -- if all elements of the 'ByteString' satisfy the predicate.
 all :: (Word8 -> Bool) -> ByteString -> Bool
 all = VS.all
+{-# INLINE all #-}
 
 -- | /O(n)/ 'maximum' returns the maximum value from a 'ByteString'
 -- This function will fuse.
 -- An exception will be thrown in the case of an empty ByteString.
 maximum :: ByteString -> Word8
 maximum = VS.maximum
+{-# INLINE maximum #-}
 
 -- | /O(n)/ 'minimum' returns the minimum value from a 'ByteString'
 -- This function will fuse.
 -- An exception will be thrown in the case of an empty ByteString.
 minimum :: ByteString -> Word8
 minimum = VS.minimum
+{-# INLINE minimum #-}
 
 
 --------------------------------------------------------------------------------
@@ -555,6 +585,7 @@ minimum = VS.minimum
 --
 scanl :: (Word8 -> Word8 -> Word8) -> Word8 -> ByteString -> ByteString
 scanl = VS.scanl
+{-# INLINE scanl #-}
 
 -- | 'scanl1' is a variant of 'scanl' that has no starting value argument.
 -- This function will fuse.
@@ -562,14 +593,17 @@ scanl = VS.scanl
 -- > scanl1 f [x1, x2, ...] == [x1, x1 `f` x2, ...]
 scanl1 :: (Word8 -> Word8 -> Word8) -> ByteString -> ByteString
 scanl1 = VS.scanl1
+{-# INLINE scanl1 #-}
 
 -- | scanr is the right-to-left dual of scanl.
 scanr :: (Word8 -> Word8 -> Word8) -> Word8 -> ByteString -> ByteString
 scanr = VS.scanr
+{-# INLINE scanr #-}
 
 -- | 'scanr1' is a variant of 'scanr' that has no starting value argument.
 scanr1 :: (Word8 -> Word8 -> Word8) -> ByteString -> ByteString
 scanr1 = VS.scanr1
+{-# INLINE scanr1 #-}
 
 --------------------------------------------------------------------------------
 -- ** Accumulating maps
@@ -632,6 +666,7 @@ replicate n x
     | n <= 0    = VS.empty
     | otherwise = unsafeCreate n $ \p ->
                     void $ memset p x (fromIntegral n)
+{-# INLINE replicate #-}
 
 -- | /O(n)/, where /n/ is the length of the result.  The 'unfoldr'
 -- function is analogous to the List \'unfoldr\'.  'unfoldr' builds a
@@ -647,6 +682,7 @@ replicate n x
 --
 unfoldr :: (a -> Maybe (Word8, a)) -> a -> ByteString
 unfoldr = VS.unfoldr
+{-# INLINE unfoldr #-}
 
 -- | /O(n)/ Like 'unfoldr', 'unfoldrN' builds a ByteString from a seed
 -- value.  However, the length of the result is limited by the first
@@ -685,15 +721,18 @@ unfoldrN i f x0
 -- of @xs@ of length @n@, or @xs@ itself if @n > 'length' xs@.
 take :: Int -> ByteString -> ByteString
 take = VS.take
+{-# INLINE take #-}
 
 -- | /O(1)/ 'drop' @n xs@ returns the suffix of @xs@ after the first @n@
 -- elements, or @[]@ if @n > 'length' xs@.
 drop  :: Int -> ByteString -> ByteString
 drop = VS.drop
+{-# INLINE drop #-}
 
 -- | /O(1)/ 'splitAt' @n xs@ is equivalent to @('take' n xs, 'drop' n xs)@.
 splitAt :: Int -> ByteString -> (ByteString, ByteString)
 splitAt = VS.splitAt
+{-# INLINE splitAt #-}
 
 -- | 'takeWhile', applied to a predicate @p@ and a ByteString @xs@,
 -- returns the longest prefix (possibly empty) of @xs@ of elements that
@@ -712,6 +751,13 @@ dropWhile f v = VS.unsafeDrop (findIndexOrEnd (not . f) v) v
 span :: (Word8 -> Bool) -> ByteString -> (ByteString, ByteString)
 span = VS.span
 {-# INLINE [1] span #-}
+
+{-# RULES
+"ByteString specialise span (x==)" forall x.
+    span ((==) x) = spanByte x
+"ByteString specialise span (==x)" forall x.
+    span (==x) = spanByte x
+  #-}
 
 -- | 'spanByte' breaks its ByteString argument at the first
 -- occurence of a byte other than its argument. It is more efficient
@@ -732,14 +778,6 @@ spanByte c v = unsafeInlineIO $ withForeignPtr fp $ \p ->
         (fp, l) = unsafeToForeignPtr0 v
 {-# INLINE spanByte #-}
 
--- This RULE LHS is not allowed by ghc-6.4
-{-# RULES
-"ByteString specialise span (x==)" forall x.
-    span ((==) x) = spanByte x
-"ByteString specialise span (==x)" forall x.
-    span (==x) = spanByte x
-  #-}
-
 -- | 'spanEnd' behaves like 'span' but from the end of the 'ByteString'.
 -- We have
 --
@@ -753,6 +791,7 @@ spanByte c v = unsafeInlineIO $ withForeignPtr fp $ \p ->
 --
 spanEnd :: (Word8 -> Bool) -> ByteString -> (ByteString, ByteString)
 spanEnd p v = VS.splitAt (findFromEndUntil (not . p) v) v
+{-# INLINE spanEnd #-}
 
 -- | 'break' @p@ is equivalent to @'span' ('not' . p)@.
 --
@@ -793,6 +832,7 @@ breakByte x v = case VS.elemIndex x v of
 -- breakEnd p == spanEnd (not.p)
 breakEnd :: (Word8 -> Bool) -> ByteString -> (ByteString, ByteString)
 breakEnd p v = VS.splitAt (findFromEndUntil p v) v
+{-# INLINE breakEnd #-}
 
 -- | The 'group' function takes a ByteString and returns a list of
 -- ByteStrings such that the concatenation of the result is equal to the
@@ -810,6 +850,7 @@ group v
     | otherwise = ys : group zs
     where
       (ys, zs) = spanByte (VS.unsafeHead v) v
+{-# INLINE group #-}
 
 -- | The 'groupBy' function is the non-overloaded version of 'group'.
 groupBy :: (Word8 -> Word8 -> Bool) -> ByteString -> [ByteString]
@@ -818,15 +859,18 @@ groupBy  k v
     | otherwise = VS.unsafeTake n v : groupBy k (VS.unsafeDrop n v)
     where
       n = 1 + findIndexOrEnd (not . k (VS.unsafeHead v)) (VS.unsafeTail v)
+{-# INLINE groupBy #-}
 
 -- | /O(n)/ Return all initial segments of the given 'ByteString', shortest first.
 inits :: ByteString -> [ByteString]
 inits v = [VS.unsafeTake s v | s <- [0..VS.length v]]
+{-# INLINE inits #-}
 
 -- | /O(n)/ Return all final segments of the given 'ByteString', longest first.
 tails :: ByteString -> [ByteString]
 tails v | VS.null v = [VS.empty]
         | otherwise = v : tails (VS.unsafeTail v)
+{-# INLINE tails #-}
 
 --------------------------------------------------------------------------------
 -- ** Breaking into many substrings
@@ -913,6 +957,7 @@ isPrefixOf v1 v2
     where
       (fp1, l1) = unsafeToForeignPtr0 v1
       (fp2, l2) = unsafeToForeignPtr0 v2
+{-# INLINE isPrefixOf #-}
 
 -- | /O(n)/ The 'isSuffixOf' function takes two ByteStrings and returns 'True'
 -- iff the first is a suffix of the second.
@@ -935,11 +980,13 @@ isSuffixOf v1 v2
     where
       (fp1, l1) = unsafeToForeignPtr0 v1
       (fp2, l2) = unsafeToForeignPtr0 v2
+{-# INLINE isSuffixOf #-}
 
 -- | Check whether one string is a substring of another. @isInfixOf
 -- p s@ is equivalent to @not (null (findSubstrings p s))@.
 isInfixOf :: ByteString -> ByteString -> Bool
 isInfixOf v1 v2 = isJust (findSubstring v1 v2)
+{-# INLINE isInfixOf #-}
 
 --------------------------------------------------------------------------------
 --  ** Search for arbitrary substrings
@@ -982,6 +1029,7 @@ breakSubstring pat src = search 0 src
         | VS.null s          = (src, VS.empty) -- not found
         | pat `isPrefixOf` s = (VS.take n src, s)
         | otherwise          = search (n+1) (VS.unsafeTail s)
+{-# INLINE breakSubstring #-}
 
 -- | Get the first index of a substring in another string,
 --   or 'Nothing' if the string is not found.
@@ -990,6 +1038,7 @@ findSubstring :: ByteString -- ^ String to search for.
               -> ByteString -- ^ String to seach in.
               -> Maybe Int
 findSubstring f i = listToMaybe (findSubstrings f i)
+{-# INLINE findSubstring #-}
 
 {-# DEPRECATED findSubstring "findSubstring is deprecated in favour of breakSubstring." #-}
 
@@ -1009,6 +1058,8 @@ findSubstrings pat str
         | otherwise          =      ixs
         where
           ixs = search (ix+1) (VS.unsafeTail s)
+{-# INLINE findSubstrings #-}
+
 {-# DEPRECATED findSubstrings "findSubstrings is deprecated in favour of breakSubstring." #-}
 
 
@@ -1022,10 +1073,12 @@ findSubstrings pat str
 -- | /O(n)/ 'elem' is the 'ByteString' membership predicate.
 elem :: Word8 -> ByteString -> Bool
 elem = VS.elem
+{-# INLINE elem #-}
 
 -- | /O(n)/ 'notElem' is the inverse of 'elem'
 notElem :: Word8 -> ByteString -> Bool
 notElem = VS.notElem
+{-# INLINE notElem #-}
 
 --------------------------------------------------------------------------------
 -- ** Searching with a predicate
@@ -1038,12 +1091,14 @@ notElem = VS.notElem
 --
 find :: (Word8 -> Bool) -> ByteString -> Maybe Word8
 find = VS.find
+{-# INLINE find #-}
 
 -- | /O(n)/ 'filter', applied to a predicate and a ByteString,
 -- returns a ByteString containing those characters that satisfy the
 -- predicate. This function is subject to array fusion.
 filter :: (Word8 -> Bool) -> ByteString -> ByteString
 filter = VS.filter
+{-# INLINE filter #-}
 
 -- | /O(n)/ The 'partition' function takes a predicate a ByteString and returns
 -- the pair of ByteStrings with elements which do and do not satisfy the
@@ -1053,6 +1108,7 @@ filter = VS.filter
 --
 partition :: (Word8 -> Bool) -> ByteString -> (ByteString, ByteString)
 partition = VS.partition
+{-# INLINE partition #-}
 
 
 --------------------------------------------------------------------------------
@@ -1062,6 +1118,7 @@ partition = VS.partition
 -- | /O(1)/ 'ByteString' index (subscript) operator, starting from 0.
 index :: ByteString -> Int -> Word8
 index = (VS.!)
+{-# INLINE index #-}
 
 -- | /O(n)/ The 'elemIndex' function returns the index of the first
 -- element in the given 'ByteString' which is equal to the query
@@ -1069,12 +1126,14 @@ index = (VS.!)
 -- This implementation uses memchr(3).
 elemIndex :: Word8 -> ByteString -> Maybe Int
 elemIndex = VS.elemIndex
+{-# INLINE elemIndex #-}
 
 -- | /O(n)/ The 'elemIndices' function extends 'elemIndex', by returning
 -- the indices of all elements equal to the query element, in ascending order.
 -- This implementation uses memchr(3).
 elemIndices :: Word8 -> ByteString -> [Int]
 elemIndices x v = VS.toList $ VS.elemIndices x v
+{-# INLINE elemIndices #-}
 
 -- | /O(n)/ The 'elemIndexEnd' function returns the last index of the
 -- element in the given 'ByteString' which is equal to the query
@@ -1102,11 +1161,13 @@ elemIndexEnd x v = unsafeInlineIO $ withForeignPtr fp $ \p ->
 -- satisfying the predicate.
 findIndex :: (Word8 -> Bool) -> ByteString -> Maybe Int
 findIndex = VS.findIndex
+{-# INLINE findIndex #-}
 
 -- | The 'findIndices' function extends 'findIndex', by returning the
 -- indices of all elements satisfying the predicate, in ascending order.
 findIndices :: (Word8 -> Bool) -> ByteString -> [Int]
 findIndices pred v = VS.toList $ VS.findIndices pred v
+{-# INLINE findIndices #-}
 
 -- | count returns the number of times its argument appears in the ByteString
 --
@@ -1134,6 +1195,7 @@ zip v1 v2
     | VS.null v1 || VS.null v2 = []
     | otherwise = (VS.unsafeHead v1, VS.unsafeHead v2)
                 : zip (VS.unsafeTail v1) (VS.unsafeTail v2)
+{-# INLINE zip #-}
 
 -- | 'zipWith' generalises 'zip' by zipping with the function given as
 -- the first argument, instead of a tupling function.  For example,
@@ -1146,6 +1208,12 @@ zipWith f = go
         | VS.null v1 || VS.null v2 = []
         | otherwise = f (VS.unsafeHead v1) (VS.unsafeHead v2)
                     : go (VS.unsafeTail v1) (VS.unsafeTail v2)
+{-# INLINE [1] zipWith #-}
+
+{-# RULES
+"ByteString specialise zipWith" forall (f :: Word8 -> Word8 -> Word8) p q .
+    zipWith f p q = unpack (zipWith' f p q)
+  #-}
 
 -- | A specialised version of zipWith for the common case of a
 -- simultaneous map over two bytestrings, to build a 3rd. Rewrite rules
@@ -1171,11 +1239,6 @@ zipWith' f v1 v2 =
       (fp1, l1) = unsafeToForeignPtr0 v1
       (fp2, l2) = unsafeToForeignPtr0 v2
 {-# INLINE zipWith' #-}
-
-{-# RULES
-"ByteString specialise zipWith" forall (f :: Word8 -> Word8 -> Word8) p q .
-    zipWith f p q = unpack (zipWith' f p q)
-  #-}
 
 -- | /O(n)/ 'unzip' transforms a list of pairs of bytes into a pair of
 -- ByteStrings. Note that this performs two 'pack' operations.
@@ -1218,6 +1281,7 @@ sort v = unsafeCreate l $ \p' -> allocaArray 256 $ \counts -> do
     go 0 p'
   where
     (fp, l) = unsafeToForeignPtr0 v
+{-# INLINE sort #-}
 
 
 --------------------------------------------------------------------------------
@@ -1239,6 +1303,7 @@ copy v = unsafeCreate l $ \p' ->
                 memcpy p' p (fromIntegral l)
     where
       (fp, l) = unsafeToForeignPtr0 v
+{-# INLINE copy #-}
 
 --------------------------------------------------------------------------------
 --  ** Packing 'CString's and pointers
@@ -1251,6 +1316,7 @@ packCString :: CString -> IO ByteString
 packCString cstr = do
     len <- c_strlen cstr
     packCStringLen (cstr, fromIntegral len)
+{-# INLINE packCString #-}
 
 -- | /O(n)./ Construct a new @ByteString@ from a @CStringLen@. The
 -- resulting @ByteString@ is an immutable copy of the original @CStringLen@.
@@ -1261,6 +1327,7 @@ packCStringLen (cstr, len) | len >= 0 = create len $ \p ->
     memcpy p (castPtr cstr) (fromIntegral len)
 packCStringLen (_, len) =
     moduleError "packCStringLen" ("negative length: " ++ show len)
+{-# INLINE packCStringLen #-}
 
 --------------------------------------------------------------------------------
 -- ** Using ByteStrings as 'CString's
@@ -1277,11 +1344,13 @@ useAsCString v action = do
       action (castPtr buf)
     where
       (fp, l) = unsafeToForeignPtr0 v
+{-# INLINE useAsCString #-}
 
 -- | /O(n) construction/ Use a @ByteString@ with a function requiring a @CStringLen@.
 -- As for @useAsCString@ this function makes a copy of the original @ByteString@.
 useAsCStringLen :: ByteString -> (CStringLen -> IO a) -> IO a
 useAsCStringLen v f = useAsCString v $ \cstr -> f (cstr, VS.length v)
+{-# INLINE useAsCStringLen #-}
 
 
 --------------------------------------------------------------------------------
@@ -1550,6 +1619,7 @@ findFromEndUntil pred = go
            | otherwise              = go (VS.unsafeTake (l-1) v)
            where
              l = VS.length v
+{-# INLINE findFromEndUntil #-}
 
 moduleError :: String -> String -> a
 moduleError fun msg = error $ "Data.Vector.Storable.ByteString." ++

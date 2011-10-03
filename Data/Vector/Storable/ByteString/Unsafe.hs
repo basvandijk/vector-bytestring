@@ -78,12 +78,14 @@ import ForeignPtr ( unsafeToForeignPtr0, unsafeFromForeignPtr0 )
 -- to provide a proof that the ByteString is non-empty.
 unsafeHead :: ByteString -> Word8
 unsafeHead = VS.unsafeHead
+{-# INLINE unsafeHead #-}
 
 -- | A variety of 'tail' for non-empty ByteStrings. 'unsafeTail' omits the
 -- check for the empty case. As with 'unsafeHead', the programmer must
 -- provide a separate proof that the ByteString is non-empty.
 unsafeTail :: ByteString -> ByteString
 unsafeTail = VS.unsafeTail
+{-# INLINE unsafeTail #-}
 
 -- | Unsafe 'ByteString' index (subscript) operator, starting from 0, returning a 'Word8'
 -- This omits the bounds check, which means there is an accompanying
@@ -91,16 +93,19 @@ unsafeTail = VS.unsafeTail
 -- other way.
 unsafeIndex :: ByteString -> Int -> Word8
 unsafeIndex = VS.unsafeIndex
+{-# INLINE unsafeIndex #-}
 
 -- | A variety of 'take' which omits the checks on @n@ so there is an
 -- obligation on the programmer to provide a proof that @0 <= n <= 'length' xs@.
 unsafeTake :: Int -> ByteString -> ByteString
 unsafeTake = VS.unsafeTake
+{-# INLINE unsafeTake #-}
 
 -- | A variety of 'drop' which omits the checks on @n@ so there is an
 -- obligation on the programmer to provide a proof that @0 <= n <= 'length' xs@.
 unsafeDrop  :: Int -> ByteString -> ByteString
 unsafeDrop = VS.unsafeDrop
+{-# INLINE unsafeDrop #-}
 
 
 --------------------------------------------------------------------------------
@@ -133,6 +138,7 @@ unsafeDrop = VS.unsafeDrop
 --
 unsafeUseAsCString :: ByteString -> (CString -> IO a) -> IO a
 unsafeUseAsCString v ac = VS.unsafeWith v $ ac . castPtr
+{-# INLINE unsafeUseAsCString #-}
 
 -- | /O(1) construction/ Use a @ByteString@ with a function requiring a
 -- @CStringLen@.
@@ -153,6 +159,7 @@ unsafeUseAsCStringLen :: ByteString -> (CStringLen -> IO a) -> IO a
 unsafeUseAsCStringLen v f = withForeignPtr fp $ \p -> f (castPtr p, l)
     where
       (fp, l) = unsafeToForeignPtr0 v
+{-# INLINE unsafeUseAsCStringLen #-}
 
 --------------------------------------------------------------------------------
 --  ** Converting CStrings to ByteStrings
@@ -172,6 +179,7 @@ unsafePackCString cstr = do
     fp <- newForeignPtr_ p
     l <- BI.c_strlen cstr
     return $! unsafeFromForeignPtr0 fp (fromIntegral l)
+{-# INLINE unsafePackCString #-}
 
 -- | /O(1)/ Build a @ByteString@ from a @CStringLen@. This value will
 -- have /no/ finalizer associated with it, and will not be garbage
@@ -187,6 +195,7 @@ unsafePackCStringLen (ptr, l) = do
     let p = castPtr ptr
     fp <- newForeignPtr_ p
     return $! unsafeFromForeignPtr0 fp (fromIntegral l)
+{-# INLINE unsafePackCStringLen #-}
 
 -- | /O(n)/ Build a @ByteString@ from a malloced @CString@. This value will
 -- have a @free(3)@ finalizer associated to it.
@@ -205,6 +214,7 @@ unsafePackMallocCString cstr = do
     fp <- newForeignPtr BI.c_free_finalizer p
     l <- BI.c_strlen cstr
     return $! unsafeFromForeignPtr0 fp (fromIntegral l)
+{-# INLINE unsafePackMallocCString #-}
 
 -- | /O(n)/ Pack a null-terminated sequence of bytes, pointed to by an
 -- Addr\# (an arbitrary machine address assumed to point outside the
@@ -278,6 +288,7 @@ unsafePackCStringFinalizer :: Ptr Word8 -> Int -> IO () -> IO ByteString
 unsafePackCStringFinalizer p l f = do
     fp <- FC.newForeignPtr p f
     return $! unsafeFromForeignPtr0 fp (fromIntegral l)
+{-# INLINE unsafePackCStringFinalizer #-}
 
 -- | Explicitly run the finaliser associated with a 'ByteString'.
 -- References to this value after finalisation may generate invalid memory
@@ -291,3 +302,4 @@ unsafePackCStringFinalizer p l f = do
 unsafeFinalize :: ByteString -> IO ()
 unsafeFinalize v = let (fp, _) = unsafeToForeignPtr0 v
                    in finalizeForeignPtr fp
+{-# INLINE unsafeFinalize #-}

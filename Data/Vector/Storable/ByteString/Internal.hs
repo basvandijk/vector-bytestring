@@ -139,12 +139,12 @@ packWith k str = unsafeCreate (length str) $ \p -> go p str
 
 -- | Create ByteString of size @l@ and use action @f@ to fill it's contents.
 create :: Int -> (Ptr Word8 -> IO ()) -> IO ByteString
-{-# INLINE create #-}
 create l f = do
   fp <- mallocVector l
   withForeignPtr fp $ \p -> do
     f p
     return $! unsafeFromForeignPtr0 fp l
+{-# INLINE create #-}
 
 -- | A way of creating ByteStrings outside the IO monad. The @Int@
 -- argument gives the final size of the ByteString. Unlike
@@ -181,6 +181,7 @@ createAndTrim' l f = do
       else do v <- create l' $ \p' ->
                      BI.memcpy p' (p `plusPtr` off) (fromIntegral l')
               return $! (v, res)
+{-# INLINE createAndTrim' #-}
 
 
 --------------------------------------------------------------------------------
@@ -197,10 +198,12 @@ fromForeignPtr :: ForeignPtr Word8
                -> Int -- ^ Length
                -> ByteString
 fromForeignPtr = VS.unsafeFromForeignPtr
+{-# INLINE fromForeignPtr #-}
 
 -- | /O(1)/ Deconstruct a ForeignPtr from a ByteString
 toForeignPtr :: ByteString -> (ForeignPtr Word8, Int, Int) -- ^ (ptr, offset, length)
 toForeignPtr = VS.unsafeToForeignPtr
+{-# INLINE toForeignPtr #-}
 
 
 --------------------------------------------------------------------------------
@@ -213,3 +216,4 @@ toForeignPtr = VS.unsafeToForeignPtr
 -- 'inlinePerformIO' block. On Hugs this is just @unsafePerformIO@.
 inlinePerformIO :: IO a -> a
 inlinePerformIO = unsafeInlineIO
+{-# INLINE inlinePerformIO #-}

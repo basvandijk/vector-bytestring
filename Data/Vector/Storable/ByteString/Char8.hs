@@ -457,20 +457,24 @@ minimum = w2c . VS.minimum
 -- > last (scanl f z xs) == foldl f z xs.
 scanl :: (Char -> Char -> Char) -> Char -> ByteString -> ByteString
 scanl f z = VS.scanl (\a b -> c2w (f (w2c a) (w2c b))) (c2w z)
+{-# INLINE scanl #-}
 
 -- | 'scanl1' is a variant of 'scanl' that has no starting value argument:
 --
 -- > scanl1 f [x1, x2, ...] == [x1, x1 `f` x2, ...]
 scanl1 :: (Char -> Char -> Char) -> ByteString -> ByteString
 scanl1 f = VS.scanl1 (\a b -> c2w (f (w2c a) (w2c b)))
+{-# INLINE scanl1 #-}
 
 -- | scanr is the right-to-left dual of scanl.
 scanr :: (Char -> Char -> Char) -> Char -> ByteString -> ByteString
 scanr f z = VS.scanr (\a b -> c2w (f (w2c a) (w2c b))) (c2w z)
+{-# INLINE scanr #-}
 
 -- | 'scanr1' is a variant of 'scanr' that has no starting value argument.
 scanr1 :: (Char -> Char -> Char) -> ByteString -> ByteString
 scanr1 f = VS.scanr1 (\a b -> c2w (f (w2c a) (w2c b)))
+{-# INLINE scanr1 #-}
 
 ------------------------------------------------------------------------
 -- ** Accumulating maps
@@ -484,6 +488,7 @@ mapAccumL :: (acc -> Char -> (acc, Char))
 mapAccumL f = B.mapAccumL $ \acc w ->
                 case f acc (w2c w) of
                   (acc', c) -> (acc', c2w c)
+{-# INLINE mapAccumL #-}
 
 -- | The 'mapAccumR' function behaves like a combination of 'map' and
 -- 'foldr'; it applies a function to each element of a ByteString,
@@ -494,6 +499,7 @@ mapAccumR :: (acc -> Char -> (acc, Char))
 mapAccumR f = B.mapAccumR $ \acc w ->
                 case f acc (w2c w) of
                   (acc', c) -> (acc', c2w c)
+{-# INLINE mapAccumR #-}
 
 ------------------------------------------------------------------------
 -- ** Generating and unfolding ByteStrings
@@ -521,6 +527,7 @@ replicate w = B.replicate w . c2w
 unfoldr :: (a -> Maybe (Char, a)) -> a -> ByteString
 unfoldr f x0 = VS.unfoldr (fmap k . f) x0
     where k (i, j) = (c2w i, j)
+{-# INLINE unfoldr #-}
 
 -- | /O(n)/ Like 'unfoldr', 'unfoldrN' builds a ByteString from a seed
 -- value.  However, the length of the result is limited by the first
@@ -663,6 +670,7 @@ breakEnd f = B.breakEnd (f . w2c)
 -- | The 'groupBy' function is the non-overloaded version of 'group'.
 groupBy :: (Char -> Char -> Bool) -> ByteString -> [ByteString]
 groupBy k = B.groupBy (\a b -> k (w2c a) (w2c b))
+{-# INLINE groupBy #-}
 
 -- | /O(n)/ Break a 'ByteString' into pieces separated by the byte
 -- argument, consuming the delimiter. I.e.
@@ -706,6 +714,7 @@ lines v
     | otherwise = case elemIndex '\n' v of
         Nothing -> [v]
         Just n  -> VS.unsafeTake n v : lines (VS.unsafeDrop (n+1) v)
+{-# INLINE lines #-}
 
 -- | 'words' breaks a ByteString up into a list of words, which
 -- were delimited by Chars representing white space.
@@ -720,6 +729,7 @@ unlines [] = VS.empty
 unlines vs = VS.concat (L.intersperse (VS.singleton nl) vs) `VS.snoc` nl
     where
       nl = c2w '\n'
+{-# INLINE unlines #-}
 
 -- | The 'unwords' function is analogous to the 'unlines' function, on words.
 unwords :: [ByteString] -> ByteString
@@ -807,6 +817,7 @@ findIndex f = VS.findIndex (f . w2c)
 -- indices of all elements satisfying the predicate, in ascending order.
 findIndices :: (Char -> Bool) -> ByteString -> [Int]
 findIndices f = B.findIndices (f . w2c)
+{-# INLINE findIndices #-}
 
 -- | count returns the number of times its argument appears in the ByteString
 --
@@ -819,6 +830,7 @@ findIndices f = B.findIndices (f . w2c)
 -- But more efficiently than using length on the intermediate list.
 count :: Char -> ByteString -> Int
 count c = B.count (c2w c)
+{-# INLINE count #-}
 
 
 ------------------------------------------------------------------------
@@ -835,6 +847,7 @@ zip v1 v2
     | VS.null v1 || VS.null v2 = []
     | otherwise = (unsafeHead v1, unsafeHead v2)
                 : zip (VS.unsafeTail v1) (VS.unsafeTail v2)
+{-# INLINE zip #-}
 
 -- | 'zipWith' generalises 'zip' by zipping with the function given as
 -- the first argument, instead of a tupling function.  For example,
@@ -842,6 +855,7 @@ zip v1 v2
 -- of corresponding sums.
 zipWith :: (Char -> Char -> a) -> ByteString -> ByteString -> [a]
 zipWith f = B.zipWith ((. w2c) . f . w2c)
+{-# INLINE zipWith #-}
 
 -- | 'unzip' transforms a list of pairs of Chars into a pair of
 -- ByteStrings. Note that this performs two 'pack' operations.

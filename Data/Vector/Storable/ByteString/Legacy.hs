@@ -15,6 +15,8 @@ toLegacyByteString :: ByteString -> Legacy.ByteString
 toLegacyByteString v = Legacy.PS fp s l
     where
       (fp, s, l) = VS.unsafeToForeignPtr v
+{-# INLINE toLegacyByteString #-}
 
 fromLegacyByteString :: Legacy.ByteString -> ByteString
 fromLegacyByteString (Legacy.PS fp s l) = VS.unsafeFromForeignPtr fp s l
+{-# INLINE fromLegacyByteString #-}

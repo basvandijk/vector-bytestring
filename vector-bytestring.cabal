@@ -34,4 +34,5 @@ Library
                    Data.Vector.Storable.ByteString.Unsafe
                    Data.Vector.Storable.ByteString.Legacy
                    Data.Vector.Storable.ByteString.Char8
-  other-modules: ForeignPtr
+
+  other-modules: Utils

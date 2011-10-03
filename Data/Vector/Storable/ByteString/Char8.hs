@@ -265,7 +265,7 @@ import Data.Vector.Storable.ByteString.Unsafe   ( unsafePackAddress )
 
 import Data.Vector.Storable.ByteString ( ByteString )
 
-import ForeignPtr ( unsafeToForeignPtr0, unsafeFromForeignPtr0 )
+import Utils ( unsafeToForeignPtr0, unsafeFromForeignPtr0 )
 
 
 ------------------------------------------------------------------------

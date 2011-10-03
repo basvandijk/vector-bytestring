@@ -96,7 +96,7 @@ import Control.Monad.Primitive ( unsafeInlineIO )
 import qualified Data.Vector.Storable as VS
 
 -- from vector-bytestring (this package):
-import ForeignPtr ( mallocVector, unsafeFromForeignPtr0 )
+import Utils ( mallocVector, unsafeFromForeignPtr0 )
 
 
 --------------------------------------------------------------------------------

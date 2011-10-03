@@ -1,9 +1,13 @@
 {-# LANGUAGE CPP, NoImplicitPrelude #-}
 
-module ForeignPtr ( mallocVector
-                  , unsafeFromForeignPtr0
-                  , unsafeToForeignPtr0
-                  ) where
+module Utils ( mallocVector
+             , unsafeFromForeignPtr0
+             , unsafeToForeignPtr0
+             ) where
+
+------------------------------------------------------------------------
+-- Imports
+------------------------------------------------------------------------
 
 -- from base:
 import Prelude            ( (*), undefined )
@@ -22,7 +26,10 @@ import Data.Vector.Storable ( Vector
                             , unsafeToForeignPtr
                             )
 
-{-# INLINE mallocVector #-}
+------------------------------------------------------------------------
+-- Utils
+------------------------------------------------------------------------
+
 mallocVector :: Storable a => Int -> IO (ForeignPtr a)
 mallocVector =
 #if __GLASGOW_HASKELL__ >= 605
@@ -33,15 +40,16 @@ mallocVector =
 #else
     mallocForeignPtrArray
 #endif
+{-# INLINE mallocVector #-}
 
 unsafeFromForeignPtr0 :: Storable a
                       => ForeignPtr a
                       -> Int
                       -> Vector a
-{-# INLINE unsafeFromForeignPtr0 #-}
 unsafeFromForeignPtr0 fp n = unsafeFromForeignPtr fp 0 n
+{-# INLINE unsafeFromForeignPtr0 #-}
 
 unsafeToForeignPtr0 :: Storable a => Vector a -> (ForeignPtr a, Int)
-{-# INLINE unsafeToForeignPtr0 #-}
 unsafeToForeignPtr0 v = let (fp, _, n) = unsafeToForeignPtr v
                         in (fp, n)
+{-# INLINE unsafeToForeignPtr0 #-}

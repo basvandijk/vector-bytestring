@@ -66,7 +66,7 @@ import qualified Data.Vector.Storable as VS
 
 -- from vector-bytestring (this package):
 import Data.Vector.Storable.ByteString.Internal ( ByteString )
-import ForeignPtr ( unsafeToForeignPtr0, unsafeFromForeignPtr0 )
+import Utils ( unsafeToForeignPtr0, unsafeFromForeignPtr0 )
 
 
 --------------------------------------------------------------------------------

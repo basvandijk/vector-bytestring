@@ -290,7 +290,7 @@ import Data.Vector.Storable.ByteString.Internal
     , memcpy, memset, memchr, memcmp
     , c_strlen, c_count, c_intersperse
     )
-import ForeignPtr ( mallocVector, unsafeFromForeignPtr0, unsafeToForeignPtr0 )
+import Utils ( mallocVector, unsafeFromForeignPtr0, unsafeToForeignPtr0 )
 
 
 --------------------------------------------------------------------------------

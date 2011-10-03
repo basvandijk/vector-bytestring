@@ -622,16 +622,16 @@ mapAccumR f acc v = unsafeInlineIO $ withForeignPtr fp $ \p -> do
 -- | /O(n)/ 'replicate' @n x@ is a ByteString of length @n@ with @x@
 -- the value of every element. The following holds:
 --
--- > replicate w c = unfoldr w (\u -> Just (u,u)) c
+-- > replicate n x = unfoldr n (\u -> Just (u,u)) x
 --
 -- This implemenation uses @memset(3)@
 
 -- TODO: Should I use VS.replicate here?
 replicate :: Int -> Word8 -> ByteString
-replicate w c
-    | w <= 0    = VS.empty
-    | otherwise = unsafeCreate w $ \p ->
-                    void $ memset p c (fromIntegral w)
+replicate n x
+    | n <= 0    = VS.empty
+    | otherwise = unsafeCreate n $ \p ->
+                    void $ memset p x (fromIntegral n)
 
 -- | /O(n)/, where /n/ is the length of the result.  The 'unfoldr'
 -- function is analogous to the List \'unfoldr\'.  'unfoldr' builds a
@@ -662,14 +662,15 @@ unfoldrN :: Int -> (a -> Maybe (Word8, a)) -> a -> (ByteString, Maybe a)
 unfoldrN i f x0
     | i < 0     = (VS.empty, Just x0)
     | otherwise = unsafePerformIO $ createAndTrim' i $ \p -> go p x0 0
-  where go !p !x !n =
-          case f x of
-            Nothing      -> return (0, n, Nothing)
-            Just (w, x')
-             | n == i    -> return (0, n, Just x)
-             | otherwise -> do
-                 poke p w
-                 go (p `plusPtr` 1) x' (n+1)
+  where
+    go !p !x !n =
+        case f x of
+          Nothing      -> return (0, n, Nothing)
+          Just (w, x')
+              | n == i    -> return (0, n, Just x)
+              | otherwise -> do
+                  poke p w
+                  go (p `plusPtr` 1) x' (n+1)
 {-# INLINE unfoldrN #-}
 
 
@@ -782,9 +783,9 @@ break p v = (VS.unsafeTake n v, VS.unsafeDrop n v)
 -- > break (=='c') "abcd" == breakByte 'c' "abcd"
 --
 breakByte :: Word8 -> ByteString -> (ByteString, ByteString)
-breakByte c p = case VS.elemIndex c p of
-    Nothing -> (p, VS.empty)
-    Just n  -> (VS.unsafeTake n p, VS.unsafeDrop n p)
+breakByte x v = case VS.elemIndex x v of
+    Nothing -> (v, VS.empty)
+    Just n  -> (VS.unsafeTake n v, VS.unsafeDrop n v)
 {-# INLINE breakByte #-}
 
 -- | 'breakEnd' behaves like 'break' but from the end of the 'ByteString'
@@ -804,19 +805,19 @@ breakEnd p v = VS.splitAt (findFromEndUntil p v) v
 -- supply their own equality test. It is about 40% faster than
 -- /groupBy (==)/
 group :: ByteString -> [ByteString]
-group xs
-    | VS.null xs = []
-    | otherwise  = ys : group zs
+group v
+    | VS.null v = []
+    | otherwise = ys : group zs
     where
-      (ys, zs) = spanByte (VS.unsafeHead xs) xs
+      (ys, zs) = spanByte (VS.unsafeHead v) v
 
 -- | The 'groupBy' function is the non-overloaded version of 'group'.
 groupBy :: (Word8 -> Word8 -> Bool) -> ByteString -> [ByteString]
-groupBy  k xs
-    | VS.null xs = []
-    | otherwise  = VS.unsafeTake n xs : groupBy k (VS.unsafeDrop n xs)
+groupBy  k v
+    | VS.null v = []
+    | otherwise = VS.unsafeTake n v : groupBy k (VS.unsafeDrop n v)
     where
-      n = 1 + findIndexOrEnd (not . k (VS.unsafeHead xs)) (VS.unsafeTail xs)
+      n = 1 + findIndexOrEnd (not . k (VS.unsafeHead v)) (VS.unsafeTail v)
 
 -- | /O(n)/ Return all initial segments of the given 'ByteString', shortest first.
 inits :: ByteString -> [ByteString]
@@ -938,7 +939,7 @@ isSuffixOf v1 v2
 -- | Check whether one string is a substring of another. @isInfixOf
 -- p s@ is equivalent to @not (null (findSubstrings p s))@.
 isInfixOf :: ByteString -> ByteString -> Bool
-isInfixOf p s = isJust (findSubstring p s)
+isInfixOf v1 v2 = isJust (findSubstring v1 v2)
 
 --------------------------------------------------------------------------------
 --  ** Search for arbitrary substrings
@@ -1073,7 +1074,7 @@ elemIndex = VS.elemIndex
 -- the indices of all elements equal to the query element, in ascending order.
 -- This implementation uses memchr(3).
 elemIndices :: Word8 -> ByteString -> [Int]
-elemIndices w bs = VS.toList $ VS.elemIndices w bs
+elemIndices x v = VS.toList $ VS.elemIndices x v
 
 -- | /O(n)/ The 'elemIndexEnd' function returns the last index of the
 -- element in the given 'ByteString' which is equal to the query
@@ -1084,11 +1085,11 @@ elemIndices w bs = VS.toList $ VS.elemIndices w bs
 -- > (-) (length xs - 1) `fmap` elemIndex c (reverse xs)
 --
 elemIndexEnd :: Word8 -> ByteString -> Maybe Int
-elemIndexEnd ch v = unsafeInlineIO $ withForeignPtr fp $ \p ->
+elemIndexEnd x v = unsafeInlineIO $ withForeignPtr fp $ \p ->
     let go !i | i < 0     = return Nothing
               | otherwise = do
-                  ch' <- peekByteOff p i
-                  if ch == ch'
+                  x' <- peekByteOff p i
+                  if x == x'
                     then return $ Just i
                     else go (i-1)
     in go (l - 1)
@@ -1105,7 +1106,7 @@ findIndex = VS.findIndex
 -- | The 'findIndices' function extends 'findIndex', by returning the
 -- indices of all elements satisfying the predicate, in ascending order.
 findIndices :: (Word8 -> Bool) -> ByteString -> [Int]
-findIndices p bs = VS.toList $ VS.findIndices p bs
+findIndices pred v = VS.toList $ VS.findIndices pred v
 
 -- | count returns the number of times its argument appears in the ByteString
 --
@@ -1113,8 +1114,8 @@ findIndices p bs = VS.toList $ VS.findIndices p bs
 --
 -- But more efficiently than using length on the intermediate list.
 count :: Word8 -> ByteString -> Int
-count w v = unsafeInlineIO $ withForeignPtr fp $ \p ->
-    fmap fromIntegral $ c_count p (fromIntegral l) w
+count x v = unsafeInlineIO $ withForeignPtr fp $ \p ->
+    fmap fromIntegral $ c_count p (fromIntegral l) x
         where
           (fp, l) = unsafeToForeignPtr0 v
 {-# INLINE count #-}
@@ -1178,7 +1179,7 @@ zipWith' f v1 v2 =
 
 -- | /O(n)/ 'unzip' transforms a list of pairs of bytes into a pair of
 -- ByteStrings. Note that this performs two 'pack' operations.
-unzip :: [(Word8,Word8)] -> (ByteString,ByteString)
+unzip :: [(Word8, Word8)] -> (ByteString, ByteString)
 unzip ls = ( VS.fromList $ L.map fst ls
            , VS.fromList $ L.map snd ls
            )

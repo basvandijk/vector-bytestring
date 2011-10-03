@@ -620,9 +620,9 @@ break f = VS.break (f . w2c)
 -- > break (=='c') "abcd" == breakChar 'c' "abcd"
 --
 breakChar :: Char -> ByteString -> (ByteString, ByteString)
-breakChar c p = case elemIndex c p of
-    Nothing -> (p, VS.empty)
-    Just n  -> (VS.unsafeTake n p, VS.unsafeDrop n p)
+breakChar c v = case elemIndex c v of
+    Nothing -> (v, VS.empty)
+    Just n  -> (VS.unsafeTake n v, VS.unsafeDrop n v)
 {-# INLINE breakChar #-}
 
 {-# RULES
@@ -830,7 +830,7 @@ count c = B.count (c2w c)
 -- excess elements of the longer ByteString are discarded. This is
 -- equivalent to a pair of 'unpack' operations, and so space
 -- usage may be large for multi-megabyte ByteStrings
-zip :: ByteString -> ByteString -> [(Char,Char)]
+zip :: ByteString -> ByteString -> [(Char, Char)]
 zip v1 v2
     | VS.null v1 || VS.null v2 = []
     | otherwise = (unsafeHead v1, unsafeHead v2)
@@ -845,7 +845,7 @@ zipWith f = B.zipWith ((. w2c) . f . w2c)
 
 -- | 'unzip' transforms a list of pairs of Chars into a pair of
 -- ByteStrings. Note that this performs two 'pack' operations.
-unzip :: [(Char,Char)] -> (ByteString,ByteString)
+unzip :: [(Char, Char)] -> (ByteString, ByteString)
 unzip ls = (pack (L.map fst ls), pack (L.map snd ls))
 {-# INLINE unzip #-}
 

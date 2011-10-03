@@ -230,11 +230,11 @@ import Data.Functor       ( fmap )
 import Data.Int           ( Int )
 import Data.Maybe         ( Maybe(Nothing, Just) )
 import Data.Ord           ( (<), (<=), (>=) )
-import Data.String        ( String, IsString, fromString )
+import Data.String        ( IsString, fromString )
 import Data.Tuple         ( fst, snd )
 import Foreign.ForeignPtr ( withForeignPtr )
 import Foreign.Storable   ( peekElemOff, peekByteOff )
-import Prelude            ( Integer, fromIntegral, toInteger, negate
+import Prelude            ( String, Integer, fromIntegral, toInteger, negate
                           , (*), (+), (-), (^), ($!), seq,
                           )
 import System.IO          ( IO, FilePath, Handle

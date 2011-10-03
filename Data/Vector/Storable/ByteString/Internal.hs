@@ -1,4 +1,5 @@
-{-# LANGUAGE NoImplicitPrelude
+{-# LANGUAGE CPP
+           , NoImplicitPrelude
            , TypeSynonymInstances
            , FlexibleInstances
            , BangPatterns
@@ -78,7 +79,12 @@ import Prelude            ( Int, ($), ($!), fromIntegral )
 import System.IO          ( IO )
 -- import Text.Read          ( Read, readsPrec )
 -- import Text.Show          ( Show, showsPrec )
-import System.IO.Unsafe   ( unsafeDupablePerformIO )
+
+#if __GLASGOW_HASKELL__ >= 702
+import System.IO.Unsafe  ( unsafeDupablePerformIO )
+#else
+import GHC.IO            ( unsafeDupablePerformIO )
+#endif
 
 -- from bytestring:
 import qualified Data.ByteString.Internal as BI

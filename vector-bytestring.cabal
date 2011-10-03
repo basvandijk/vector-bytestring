@@ -1,5 +1,5 @@
 name:          vector-bytestring
-version:       0.1
+version:       0.0.0.0
 cabal-version: >=1.6
 build-type:    Simple
 license:       BSD3

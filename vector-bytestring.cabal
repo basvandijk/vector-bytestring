@@ -39,3 +39,12 @@ Library
                    Data.Vector.Storable.ByteString.Lazy.Char8
 
   other-modules: Utils
+
+test-suite prop-compiled
+  type:           exitcode-stdio-1.0
+  main-is:        Properties.hs
+  hs-source-dirs: . tests
+  build-depends:  base, random, directory,
+                  QuickCheck >= 2.3 && < 3
+  build-depends:  ghc-prim
+  ghc-options:    -fno-enable-rewrite-rules

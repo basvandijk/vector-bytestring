@@ -34,5 +34,8 @@ Library
                    Data.Vector.Storable.ByteString.Unsafe
                    Data.Vector.Storable.ByteString.Legacy
                    Data.Vector.Storable.ByteString.Char8
+                   Data.Vector.Storable.ByteString.Lazy
+                   Data.Vector.Storable.ByteString.Lazy.Internal
+                   Data.Vector.Storable.ByteString.Lazy.Char8
 
   other-modules: Utils

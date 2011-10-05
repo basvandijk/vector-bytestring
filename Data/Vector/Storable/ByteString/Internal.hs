@@ -120,25 +120,29 @@ import Utils ( unsafeFromForeignPtr0 )
 type ByteString = VS.Vector Word8
 
 
-{- TODO: Probably not a good idea to add these orphaned instances:
+{-
+-- TODO: Probably not a good idea to add these orphaned instances:
 --------------------------------------------------------------------------------
 -- Show & Read instances
 --------------------------------------------------------------------------------
 
 instance Show ByteString where
     showsPrec p ps r = showsPrec p (unpackWith w2c ps) r
+
 instance Read ByteString where
     readsPrec p str = [ (packWith c2w x, y) | (x, y) <- readsPrec p str ]
 
 -- | /O(n)/ Converts a 'ByteString' to a '[a]', using a conversion function.
 unpackWith :: (Word8 -> a) -> ByteString -> [a]
-unpackWith k v | l == 0 = []
-               | otherwise = unsafeInlineIO $ VS.unsafeWith v $ \p ->
-                               go p (l - 1) []
+unpackWith k v
+    | l == 0 = []
+    | otherwise =
+        unsafeInlineIO $ withForeignPtr fp $ \p ->
+          let go 0  !acc = peek p          >>= \e -> return   (k e : acc)
+              go !n !acc = peekByteOff p n >>= \e -> go (n-1) (k e : acc)
+          in go (l - 1) []
     where
-      l = VS.length v
-      go !ptr 0  !acc = peek ptr          >>= \e -> return (k e : acc)
-      go !ptr !n !acc = peekByteOff ptr n >>= \e -> go ptr (n-1) (k e : acc)
+      (fp, l) = unsafeToForeignPtr0 v
 {-# INLINE unpackWith #-}
 
 -- | /O(n)/ Convert a '[a]' into a 'ByteString' using some
@@ -147,10 +151,11 @@ packWith :: (a -> Word8) -> [a] -> ByteString
 packWith k str = unsafeCreate (length str) $ \p -> go p str
     where
         go _  []     = return ()
-        go !p (x:xs) = poke p (k x) >> go (p `plusPtr` 1) xs -- less space than pokeElemOff
+        go !p (x:xs) = poke p (k x) >> go (p `plusPtr` 1) xs
+                       -- less space than pokeElemOff
 {-# INLINE packWith #-}
-
 -}
+
 --------------------------------------------------------------------------------
 -- * Low level introduction and elimination
 --------------------------------------------------------------------------------

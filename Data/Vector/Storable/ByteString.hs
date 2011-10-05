@@ -287,10 +287,11 @@ import qualified Data.Vector.Storable as VS
 import Data.Vector.Storable.ByteString.Internal
     ( ByteString
     , create, unsafeCreate, createAndTrim, createAndTrim'
+    , mallocByteString
     , memcpy, memset, memchr, memcmp
     , c_strlen, c_count, c_intersperse
     )
-import Utils ( mallocVector, unsafeFromForeignPtr0, unsafeToForeignPtr0 )
+import Utils ( unsafeFromForeignPtr0, unsafeToForeignPtr0 )
 
 
 --------------------------------------------------------------------------------
@@ -615,7 +616,7 @@ scanr1 = VS.scanr1
 mapAccumL :: (acc -> Word8 -> (acc, Word8))
           -> acc -> ByteString -> (acc, ByteString)
 mapAccumL f acc v = unsafeInlineIO $ withForeignPtr fp $ \p -> do
-    fp' <- mallocVector l
+    fp' <- mallocByteString l
     withForeignPtr fp' $ \p' ->
       let go !a !m
             | m >= l = return (a, unsafeFromForeignPtr0 fp' l)
@@ -636,7 +637,7 @@ mapAccumL f acc v = unsafeInlineIO $ withForeignPtr fp $ \p -> do
 mapAccumR :: (acc -> Word8 -> (acc, Word8))
           -> acc -> ByteString -> (acc, ByteString)
 mapAccumR f acc v = unsafeInlineIO $ withForeignPtr fp $ \p -> do
-    fp' <- mallocVector l
+    fp' <- mallocByteString l
     withForeignPtr fp' $ \p' ->
       let go !a !m
             | m < 0     = return (a, unsafeFromForeignPtr0 fp' l)

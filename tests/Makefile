@@ -30,9 +30,9 @@ units-compiled:
 
 # interpreted
 .PHONY: prop hugs
-prop:: 
-	@echo "Interpreted"	
-	runhaskell Properties.hs
+prop::
+	@echo "Interpreted"
+	runhaskell -i../cbits/bytestring.o Properties.hs
 
 hugs::
 	runhugs -98 Properties.hs
@@ -40,31 +40,31 @@ hugs::
 # interpreted fast. Just a quick check.
 .PHONY: prop-fast
 prop-fast::
-	runhaskell Properties.hs 30 
+	runhaskell -i../cbits/bytestring.o Properties.hs 30
 
 # compiled
 .PHONY: prop-compiled
-prop-compiled: 
-	@echo "Compiled, rules off"	
+prop-compiled:
+	@echo "Compiled, rules off"
 	${GHC} ${PKG} ${GHCFLAGS} -fno-enable-rewrite-rules --make Properties.hs -o p -package QuickCheck
 	time ./p
 
 # rules-on
 .PHONY: prop-opt
-prop-opt: 
-	@echo "Compiled, rules on"	
+prop-opt:
+	@echo "Compiled, rules on"
 	${GHC} ${PKG} ${GHCFLAGS} --make Properties.hs -o p -package QuickCheck
 	time ./p
 
 # rules-on
 .PHONY: hpc-lite
-hpc-lite: 
-	@echo "Compiled, rules on, with hpc"	
+hpc-lite:
+	@echo "Compiled, rules on, with hpc"
 	rm -f p.tix
-	${GHC} ${GHCFLAGS} -ddump-simpl-stats -fhpc --make -i.. Properties.hs -o p -O -fno-ignore-asserts -fasm -frewrite-rules
+	${GHC} ${GHCFLAGS} ../dist/build/cbits/bytestring.o -ddump-simpl-stats -fhpc --make -i.. Properties.hs -o p -O -fno-ignore-asserts -fasm -frewrite-rules
 	rm Rules.o Rules.hi
-	${GHC} ${GHCFLAGS} -hide-package vector-bytestring -ddump-simpl-stats -i.. Rules.hs -O -fno-ignore-asserts -fasm -frewrite-rules ../Data/Vector/Storable/ByteString/*.o ../Data/Vector/Storable/ByteString/*/*.o ../Data/Vector/Storable/ByteString.o -package QuickCheck QuickCheckUtils.o -c -no-recomp
-	${GHC} ${GHCFLAGS} -package QuickCheck ../dist/build/cbits/fpstring.o Properties.o Rules.o QuickCheckUtils.o ../Data/Vector/Storable/ByteString/*.o ../Data/Vector/Storable/ByteString/*/*.o ../Data/Vector/Storable/ByteString.o -o p
+	${GHC} ${GHCFLAGS} -hide-package vector-bytestring ../dist/build/cbits/bytestring.o -ddump-simpl-stats -i.. Rules.hs -O -fno-ignore-asserts -fasm -frewrite-rules ../Data/Vector/Storable/ByteString/*.o ../Data/Vector/Storable/ByteString/*/*.o ../Data/Vector/Storable/ByteString.o -package QuickCheck QuickCheckUtils.o -c -no-recomp
+	${GHC} ${GHCFLAGS} -package QuickCheck ../dist/build/cbits/bytestring.o Properties.o Rules.o QuickCheckUtils.o ../Data/Vector/Storable/ByteString/*.o ../Data/Vector/Storable/ByteString/*/*.o ../Data/Vector/Storable/ByteString.o -o p
 	time ./p 40
 	hpc markup p --exclude=Main --exclude=QuickCheckUtils
 
@@ -194,14 +194,14 @@ plot:: results
              set yrange [0:2]          \n \
              plot "results" using ($$1):($$2) with boxes, "" using ($$1):($$3) with boxes' |\
              gnuplot ;
-	xv results.png    
+	xv results.png
 
 # ---------------------------------------------------
 # Cleaning
 
 .PHONY: clean
 clean:
-	rm -f *~ *.o *.hi $(BIN) bench */*.o */*.hi */*~ 
+	rm -f *~ *.o *.hi $(BIN) bench */*.o */*.hi */*~
 	rm -f wc letter_frequency spellcheck linesort fuse inline p u fp lazylines lazybuild lazybuildcons
 	rm -f down-fuse zipwith fusionbench unpack groupby
 	rm -rf *.tix *.html .hpc check

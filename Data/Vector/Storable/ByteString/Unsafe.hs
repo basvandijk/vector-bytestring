@@ -58,14 +58,13 @@ import qualified Foreign.Concurrent as FC ( newForeignPtr )
 import GHC.Prim           ( Addr# )
 import GHC.Ptr            ( Ptr(..) )
 
--- from bytestring:
-import qualified Data.ByteString.Internal as BI
-
 -- from vector:
 import qualified Data.Vector.Storable as VS
 
 -- from vector-bytestring (this package):
-import Data.Vector.Storable.ByteString.Internal ( ByteString )
+import Data.Vector.Storable.ByteString.Internal
+    ( ByteString, c_strlen, c_free_finalizer )
+
 import Utils ( unsafeToForeignPtr0, unsafeFromForeignPtr0 )
 
 
@@ -177,7 +176,7 @@ unsafePackCString :: CString -> IO ByteString
 unsafePackCString cstr = do
     let p = castPtr cstr
     fp <- newForeignPtr_ p
-    l <- BI.c_strlen cstr
+    l <- c_strlen cstr
     return $! unsafeFromForeignPtr0 fp (fromIntegral l)
 {-# INLINE unsafePackCString #-}
 
@@ -211,8 +210,8 @@ unsafePackCStringLen (ptr, l) = do
 unsafePackMallocCString :: CString -> IO ByteString
 unsafePackMallocCString cstr = do
     let p = castPtr cstr
-    fp <- newForeignPtr BI.c_free_finalizer p
-    l <- BI.c_strlen cstr
+    fp <- newForeignPtr c_free_finalizer p
+    l <- c_strlen cstr
     return $! unsafeFromForeignPtr0 fp (fromIntegral l)
 {-# INLINE unsafePackMallocCString #-}
 
@@ -246,7 +245,7 @@ unsafePackAddress addr# = do
         p = castPtr cstr
 
     fp <- newForeignPtr_ p
-    l <- BI.c_strlen cstr
+    l <- c_strlen cstr
     return $! unsafeFromForeignPtr0 fp (fromIntegral l)
 {-# INLINE unsafePackAddress #-}
 

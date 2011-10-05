@@ -3,6 +3,8 @@
            , TypeSynonymInstances
            , FlexibleInstances
            , BangPatterns
+           , MagicHash
+           , ForeignFunctionInterface
   #-}
 
 -- |
@@ -31,7 +33,7 @@ module Data.Vector.Storable.ByteString.Internal (
         createAndTrim,          -- :: Int -> (Ptr Word8 -> IO Int) -> IO  ByteString
         createAndTrim',         -- :: Int -> (Ptr Word8 -> IO (Int, Int, a)) -> IO (ByteString, a)
         unsafeCreate,           -- :: Int -> (Ptr Word8 -> IO ()) ->  ByteString
-        BI.mallocByteString,    -- :: Int -> IO (ForeignPtr a)
+        mallocByteString,       -- :: Int -> IO (ForeignPtr a)
 
         -- * Conversion to and from ForeignPtrs
         fromForeignPtr,         -- :: ForeignPtr Word8 -> Int -> Int -> ByteString
@@ -39,27 +41,30 @@ module Data.Vector.Storable.ByteString.Internal (
 
 
         -- * Utilities
-        inlinePerformIO,           -- :: IO a -> a
-        BI.nullForeignPtr,         -- :: ForeignPtr Word8
+        inlinePerformIO,        -- :: IO a -> a
+        nullForeignPtr,         -- :: ForeignPtr Word8
 
         -- * Standard C Functions
-        BI.c_strlen,               -- :: CString -> IO CInt
-        BI.c_free_finalizer,       -- :: FunPtr (Ptr Word8 -> IO ())
+        c_strlen,               -- :: CString -> IO CInt
+        c_free_finalizer,       -- :: FunPtr (Ptr Word8 -> IO ())
 
-        BI.memchr,                 -- :: Ptr Word8 -> Word8 -> CSize -> IO Ptr Word8
-        BI.memcmp,                 -- :: Ptr Word8 -> Ptr Word8 -> CSize -> IO CInt
-        BI.memcpy,                 -- :: Ptr Word8 -> Ptr Word8 -> CSize -> IO ()
-        BI.memset,                 -- :: Ptr Word8 -> Word8 -> CSize -> IO (Ptr Word8)
+        memchr,                 -- :: Ptr Word8 -> Word8 -> CSize -> IO Ptr Word8
+        memcmp,                 -- :: Ptr Word8 -> Ptr Word8 -> CSize -> IO CInt
+        memcpy,                 -- :: Ptr Word8 -> Ptr Word8 -> CSize -> IO ()
+        memset,                 -- :: Ptr Word8 -> Word8 -> CSize -> IO (Ptr Word8)
 
         -- * cbits functions
-        BI.c_reverse,              -- :: Ptr Word8 -> Ptr Word8 -> CInt -> IO ()
-        BI.c_intersperse,          -- :: Ptr Word8 -> Ptr Word8 -> CInt -> Word8 -> IO ()
-        BI.c_maximum,              -- :: Ptr Word8 -> CInt -> IO Word8
-        BI.c_minimum,              -- :: Ptr Word8 -> CInt -> IO Word8
-        BI.c_count,                -- :: Ptr Word8 -> CInt -> Word8 -> IO CInt
+        c_reverse,              -- :: Ptr Word8 -> Ptr Word8 -> CInt -> IO ()
+        c_intersperse,          -- :: Ptr Word8 -> Ptr Word8 -> CInt -> Word8 -> IO ()
+        c_maximum,              -- :: Ptr Word8 -> CInt -> IO Word8
+        c_minimum,              -- :: Ptr Word8 -> CInt -> IO Word8
+        c_count,                -- :: Ptr Word8 -> CInt -> Word8 -> IO CInt
 
         -- * Chars
-        BI.w2c, BI.c2w, BI.isSpaceWord8, BI.isSpaceChar8
+        w2c,                    -- :: Word8 -> Char
+        c2w,                    -- :: Char -> Word8
+        isSpaceWord8,           -- :: Word8 -> Bool
+        isSpaceChar8            -- :: Char -> Bool
 
   ) where
 
@@ -70,12 +75,19 @@ module Data.Vector.Storable.ByteString.Internal (
 
 -- from base:
 import Control.Exception  ( assert )
-import Control.Monad      ( return )
+import Control.Monad      ( return, void )
+import Data.Char          ( Char, ord )
+import Data.Bool          ( Bool, (||) )
+import Data.Eq            ( (==) )
+import Data.Function      ( (.) )
 import Data.Ord           ( (<=), (>=) )
 import Data.Word          ( Word8 )
+import Foreign.C.String   ( CString )
+import Foreign.C.Types    ( CSize, CInt, CULong )
+import Foreign.Ptr        ( FunPtr )
 import Foreign.ForeignPtr ( ForeignPtr, withForeignPtr  )
 import Foreign.Ptr        ( Ptr, plusPtr )
-import Prelude            ( Int, ($), ($!), fromIntegral )
+import Prelude            ( Int, ($), ($!), fromIntegral, undefined )
 import System.IO          ( IO )
 -- import Text.Read          ( Read, readsPrec )
 -- import Text.Show          ( Show, showsPrec )
@@ -86,8 +98,8 @@ import System.IO.Unsafe  ( unsafeDupablePerformIO )
 import GHC.IO            ( unsafeDupablePerformIO )
 #endif
 
--- from bytestring:
-import qualified Data.ByteString.Internal as BI
+import GHC.ForeignPtr    ( ForeignPtr(ForeignPtr), mallocPlainForeignPtrBytes )
+import GHC.Base          ( nullAddr#, unsafeChr )
 
 -- from primitive:
 import Control.Monad.Primitive ( unsafeInlineIO )
@@ -96,7 +108,7 @@ import Control.Monad.Primitive ( unsafeInlineIO )
 import qualified Data.Vector.Storable as VS
 
 -- from vector-bytestring (this package):
-import Utils ( mallocVector, unsafeFromForeignPtr0 )
+import Utils ( unsafeFromForeignPtr0 )
 
 
 --------------------------------------------------------------------------------
@@ -114,9 +126,9 @@ type ByteString = VS.Vector Word8
 --------------------------------------------------------------------------------
 
 instance Show ByteString where
-    showsPrec p ps r = showsPrec p (unpackWith BI.w2c ps) r
+    showsPrec p ps r = showsPrec p (unpackWith w2c ps) r
 instance Read ByteString where
-    readsPrec p str = [ (packWith BI.c2w x, y) | (x, y) <- readsPrec p str ]
+    readsPrec p str = [ (packWith c2w x, y) | (x, y) <- readsPrec p str ]
 
 -- | /O(n)/ Converts a 'ByteString' to a '[a]', using a conversion function.
 unpackWith :: (Word8 -> a) -> ByteString -> [a]
@@ -146,7 +158,7 @@ packWith k str = unsafeCreate (length str) $ \p -> go p str
 -- | Create ByteString of size @l@ and use action @f@ to fill it's contents.
 create :: Int -> (Ptr Word8 -> IO ()) -> IO ByteString
 create l f = do
-  fp <- mallocVector l
+  fp <- mallocByteString l
   withForeignPtr fp $ \p -> do
     f p
     return $! unsafeFromForeignPtr0 fp l
@@ -160,6 +172,11 @@ unsafeCreate :: Int -> (Ptr Word8 -> IO ()) -> ByteString
 unsafeCreate l f = unsafeDupablePerformIO (create l f)
 {-# INLINE unsafeCreate #-}
 
+-- | Wrapper of 'mallocForeignPtrBytes' with faster implementation for GHC.
+mallocByteString :: Int -> IO (ForeignPtr a)
+mallocByteString = mallocPlainForeignPtrBytes
+{-# INLINE mallocByteString #-}
+
 -- | Given the maximum size needed and a function to make the contents
 -- of a ByteString, createAndTrim makes the 'ByteString'. The generating
 -- function is required to return the actual final size (<= the maximum
@@ -169,23 +186,23 @@ unsafeCreate l f = unsafeDupablePerformIO (create l f)
 -- ByteString functions, using Haskell or C functions to fill the space.
 createAndTrim :: Int -> (Ptr Word8 -> IO Int) -> IO ByteString
 createAndTrim l f = do
-  fp <- mallocVector l
+  fp <- mallocByteString l
   withForeignPtr fp $ \p -> do
     l' <- f p
     if assert (l' <= l) $ l' >= l
       then return $! unsafeFromForeignPtr0 fp l
-      else create l' $ \p' -> BI.memcpy p' p (fromIntegral l')
+      else create l' $ \p' -> memcpy p' p (fromIntegral l')
 {-# INLINE createAndTrim #-}
 
 createAndTrim' :: Int -> (Ptr Word8 -> IO (Int, Int, a)) -> IO (ByteString, a)
 createAndTrim' l f = do
-  fp <- mallocVector l
+  fp <- mallocByteString l
   withForeignPtr fp $ \p -> do
     (off, l', res) <- f p
     if assert (l' <= l) $ l' >= l
       then return $! (unsafeFromForeignPtr0 fp l, res)
       else do v <- create l' $ \p' ->
-                     BI.memcpy p' (p `plusPtr` off) (fromIntegral l')
+                     memcpy p' (p `plusPtr` off) (fromIntegral l')
               return $! (v, res)
 {-# INLINE createAndTrim' #-}
 
@@ -223,3 +240,101 @@ toForeignPtr = VS.unsafeToForeignPtr
 inlinePerformIO :: IO a -> a
 inlinePerformIO = unsafeInlineIO
 {-# INLINE inlinePerformIO #-}
+
+-- | The 0 pointer. Used to indicate the empty Bytestring.
+nullForeignPtr :: ForeignPtr Word8
+nullForeignPtr = ForeignPtr nullAddr# undefined --TODO: should ForeignPtrContents be strict?
+
+
+--------------------------------------------------------------------------------
+-- * Standard C Functions
+--------------------------------------------------------------------------------
+
+foreign import ccall unsafe "string.h strlen" c_strlen
+    :: CString -> IO CSize
+
+foreign import ccall unsafe "static stdlib.h &free" c_free_finalizer
+    :: FunPtr (Ptr Word8 -> IO ())
+
+foreign import ccall unsafe "string.h memchr" c_memchr
+    :: Ptr Word8 -> CInt -> CSize -> IO (Ptr Word8)
+
+memchr :: Ptr Word8 -> Word8 -> CSize -> IO (Ptr Word8)
+memchr p w s = c_memchr p (fromIntegral w) s
+
+foreign import ccall unsafe "string.h memcmp" memcmp
+    :: Ptr Word8 -> Ptr Word8 -> CSize -> IO CInt
+
+foreign import ccall unsafe "string.h memcpy" c_memcpy
+    :: Ptr Word8 -> Ptr Word8 -> CSize -> IO (Ptr Word8)
+
+memcpy :: Ptr Word8 -> Ptr Word8 -> CSize -> IO ()
+memcpy p q s = void $ c_memcpy p q s
+
+foreign import ccall unsafe "string.h memset" c_memset
+    :: Ptr Word8 -> CInt -> CSize -> IO (Ptr Word8)
+
+memset :: Ptr Word8 -> Word8 -> CSize -> IO (Ptr Word8)
+memset p w s = c_memset p (fromIntegral w) s
+
+
+--------------------------------------------------------------------------------
+-- * cbits functions
+--------------------------------------------------------------------------------
+
+foreign import ccall unsafe "static bytestring.h bytestring_reverse" c_reverse
+    :: Ptr Word8 -> Ptr Word8 -> CULong -> IO ()
+
+foreign import ccall unsafe "static bytestring.h bytestring_intersperse" c_intersperse
+    :: Ptr Word8 -> Ptr Word8 -> CULong -> Word8 -> IO ()
+
+foreign import ccall unsafe "static bytestring.h bytestring_maximum" c_maximum
+    :: Ptr Word8 -> CULong -> IO Word8
+
+foreign import ccall unsafe "static bytestring.h bytestring_minimum" c_minimum
+    :: Ptr Word8 -> CULong -> IO Word8
+
+foreign import ccall unsafe "static bytestring.h bytestring_count" c_count
+    :: Ptr Word8 -> CULong -> Word8 -> IO CULong
+
+
+--------------------------------------------------------------------------------
+-- * Chars
+--------------------------------------------------------------------------------
+
+-- | Conversion between 'Word8' and 'Char'. Should compile to a no-op.
+w2c :: Word8 -> Char
+w2c = unsafeChr . fromIntegral
+{-# INLINE w2c #-}
+
+-- | Unsafe conversion between 'Char' and 'Word8'. This is a no-op and
+-- silently truncates to 8 bits Chars > '\255'. It is provided as
+-- convenience for ByteString construction.
+c2w :: Char -> Word8
+c2w = fromIntegral . ord
+{-# INLINE c2w #-}
+
+-- | Selects words corresponding to white-space characters in the Latin-1 range
+-- ordered by frequency.
+isSpaceWord8 :: Word8 -> Bool
+isSpaceWord8 w =
+    w == 0x20 ||
+    w == 0x0A || -- LF, \n
+    w == 0x09 || -- HT, \t
+    w == 0x0C || -- FF, \f
+    w == 0x0D || -- CR, \r
+    w == 0x0B || -- VT, \v
+    w == 0xA0    -- spotted by QC..
+{-# INLINE isSpaceWord8 #-}
+
+-- | Selects white-space characters in the Latin-1 range
+isSpaceChar8 :: Char -> Bool
+isSpaceChar8 c =
+    c == ' '     ||
+    c == '\t'    ||
+    c == '\n'    ||
+    c == '\r'    ||
+    c == '\f'    ||
+    c == '\v'    ||
+    c == '\xa0'
+{-# INLINE isSpaceChar8 #-}

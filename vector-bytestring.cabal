@@ -1,6 +1,6 @@
 name:          vector-bytestring
 version:       0.0.0.0
-cabal-version: >=1.6
+cabal-version: >=1.9.2
 build-type:    Simple
 license:       BSD3
 license-file:  LICENSE

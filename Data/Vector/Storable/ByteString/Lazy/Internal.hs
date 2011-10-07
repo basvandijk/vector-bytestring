@@ -41,6 +41,8 @@ import Foreign.Storable (Storable(sizeOf))
 import Data.Typeable    (Typeable)
 import Data.Data        (Data)
 
+import Control.DeepSeq (NFData, rnf)
+
 -- | A space-efficient representation of a Word8 vector, supporting many
 -- efficient operations.  A 'ByteString' contains 8-bit characters only.
 --
@@ -48,6 +50,10 @@ import Data.Data        (Data)
 --
 data ByteString = Empty | Chunk {-# UNPACK #-} !S.ByteString ByteString
     deriving (Show, Read, Data, Typeable)
+
+instance NFData ByteString where
+    rnf Empty = ()
+    rnf (Chunk c cs) = rnf c `seq` rnf cs
 
 ------------------------------------------------------------------------
 

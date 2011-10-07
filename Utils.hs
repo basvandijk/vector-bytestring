@@ -14,6 +14,10 @@ import Foreign.ForeignPtr ( ForeignPtr )
 -- from vector:
 import Data.Vector.Storable ( Vector, unsafeFromForeignPtr, unsafeToForeignPtr )
 
+-- TODO: Remove:
+import Control.DeepSeq (NFData)
+instance NFData (Vector a)
+
 ------------------------------------------------------------------------
 -- Utils
 ------------------------------------------------------------------------

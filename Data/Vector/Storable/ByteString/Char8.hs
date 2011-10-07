@@ -303,6 +303,51 @@ pack str = unsafeCreate (L.length str) $ \(Ptr p) -> stToIO (go p str)
    pack (unpackCString# s) = unsafeInlineIO (unsafePackAddress s)
  #-}
 
+{-
+TODO: Unfortunately the following definition of pack is slower:
+
+pack = VS.fromList . L.map c2w
+
+Probably because of the intermediate list that is constructed and immediately
+consumed. However, this definition is amenable to stream-fusion because of the
+VS.fromList.
+
+So lets try to fuse the construction of the list with the construction of the
+Stream. To do that we need to add the following to:
+Data.Vector.Fusion.Stream.Monadic
+
+    #if __GLASGOW_HASKELL__
+    import GHC.Base ( build )
+    #endif
+
+    #if __GLASGOW_HASKELL__
+     {-# RULES
+    "unsafeFromList/build"
+      forall sz (g :: forall b. (a -> b -> b) -> b -> b).
+      unsafeFromList sz (build g) = unsafeFromListF sz g
+      #-}
+    unsafeFromListF :: forall m a. Monad m
+                    => Size
+                    -> (forall b. (a -> b -> b) -> b -> b)
+                    -> Stream m a
+    {-# INLINE unsafeFromListF #-}
+    unsafeFromListF sz g = Stream step st sz
+        where
+          St step st = g c z
+
+          c :: a -> St m a -> St m a
+          c x st = St (\(St s st') -> s st')
+                      (St (\s -> return (Yield x s)) st)
+
+          z :: St m a
+          z = St (\_ -> return Done) undefined
+
+    data St m a = St ((St m a) -> m (Step (St m a) a)) (St m a)
+    #endif
+
+Unfortunately, initial experiments failed to make it faster.
+-}
+
 -- | /O(n)/ Converts a 'ByteString' to a 'String'.
 unpack :: ByteString -> [Char]
 unpack = L.map w2c . B.unpack

@@ -258,7 +258,7 @@ import System.IO.Error       ( ioError, mkIOError, illegalOperationErrorType )
 import Text.Show             ( show, showsPrec )
 
 import qualified Data.List as L
-    ( intersperse, transpose, map, reverse, length )
+    ( intersperse, transpose, map, reverse )
 import Data.List ( (++) )
 
 import GHC.IO.Handle.Internals ( wantReadableHandle_, flushCharReadBuffer
@@ -271,11 +271,6 @@ import GHC.IO.Buffer           ( RawBuffer, Buffer(Buffer), bufRaw, bufL, bufR
 import GHC.IO.BufferedIO as Buffered ( fillReadBuffer )
 
 import GHC.Base                ( build )
-import GHC.IO                  ( stToIO )
-import GHC.Prim                ( Addr#, plusAddr#, writeWord8OffAddr# )
-import GHC.Ptr                 ( Ptr(..) )
-import GHC.ST                  ( ST(..) )
-import GHC.Word                ( Word8(W8#) )
 
 -- from primitive:
 import Control.Monad.Primitive ( unsafeInlineIO )
@@ -313,6 +308,18 @@ singleton = VS.singleton
 -- For applications with large numbers of string literals, pack can be a
 -- bottleneck. In such cases, consider using packAddress (GHC only).
 pack :: [Word8] -> ByteString
+pack = VS.fromList
+{-# INLINE pack #-}
+
+{-
+The following pack does not appear to be faster:
+
+import GHC.IO                  ( stToIO )
+import GHC.Prim                ( Addr#, plusAddr#, writeWord8OffAddr# )
+import GHC.Ptr                 ( Ptr(..) )
+import GHC.ST                  ( ST(..) )
+import GHC.Word                ( Word8(W8#) )
+
 pack str = unsafeCreate (L.length str) $ \(Ptr p) -> stToIO (go p str)
     where
       go :: Addr# -> [Word8] -> ST a ()
@@ -323,7 +330,7 @@ pack str = unsafeCreate (L.length str) $ \(Ptr p) -> stToIO (go p str)
               case writeWord8OffAddr# p 0# c s# of
                 s2# -> (# s2#, () #)
             {-# INLINE writeByte #-}
-{-# INLINE pack #-}
+-}
 
 -- | /O(n)/ Converts a 'ByteString' to a @['Word8']@.
 unpack :: ByteString -> [Word8]

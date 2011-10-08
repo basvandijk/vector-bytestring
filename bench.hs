@@ -248,7 +248,9 @@ main = do
                         (nf (VSBL8.foldl' foldlF8 z8) vbl)
                         (nf   (BL8.foldl' foldlF8 z8) bl)
 
-         , BOOA(foldl1, foldlF, foldlF8, vb, b, vbl, bl)
+        -- TODO: BOOA(foldl1, foldlF, foldlF8, vb, b, vbl, bl)
+        -- Stack space overflows in:
+        -- foldl1/strict/Word8/vector
 
          , boo "foldl1'" (nf   (VSB.foldl1' foldlF)  vb)
                          (nf     (B.foldl1' foldlF)  b)
@@ -598,6 +600,89 @@ main = do
     ----------------------------------------------------------------------------
 
     -- TODO
+    ] ++
+
+
+    ----------------------------------------------------------------------------
+    -- Benchmarking fusion
+    ----------------------------------------------------------------------------
+
+    [ bgroup "fusion" $
+      let fuse name f g = bgroup name $ bar (nf f vb)
+                                            (nf g b)
+      in [ bgroup "non_directional"
+           [ fuse "map-map"       (VSB.map (*2) . VSB.map (+4))
+                                  (  B.map (*2) .   B.map (+4))
+           , fuse "filter-filter" (VSB.filter (/=101) . VSB.filter (/=102))
+                                  (  B.filter (/=101) .   B.filter (/=102))
+           , fuse "filter-map"    (VSB.filter (/=103) . VSB.map (+5))
+                                  (  B.filter (/=103) .   B.map (+5))
+           , fuse "map-filter"    (VSB.map (*3) . VSB.filter (/=104))
+                                  (  B.map (*3) .   B.filter (/=104))
+           , fuse "map-noacc"     ((VSB.map (+1) . VSB.filter (/=112)) . VSB.map (*2))
+                                  ((  B.map (+1) .   B.filter (/=112)) .   B.map (*2))
+           , fuse "noacc-map"     (VSB.map (+1) . (VSB.map (+2) . VSB.filter (/=113)))
+                                  (  B.map (+1) . (  B.map (+2) .   B.filter (/=113)))
+           , fuse "filter-noacc"  ((VSB.map (+1) . VSB.filter (/=101)) . VSB.filter (/=114))
+                                  ((  B.map (+1) .   B.filter (/=101)) .   B.filter (/=114))
+           , fuse "noacc-filter"  (VSB.filter (/=101) . (VSB.map (*2) . VSB.filter (/=115)))
+                                  (  B.filter (/=101) . (  B.map (*2) .   B.filter (/=115)))
+           , fuse "noacc-noacc"   ((VSB.map (*3) . VSB.filter (/=108)) . (VSB.map (*4) . VSB.filter (/=109)))
+                                  ((  B.map (*3) .   B.filter (/=108)) . (  B.map (*4) .   B.filter (/=109)))
+           ]
+
+         , bgroup "up_loops"
+           [ fuse "up-up"          (VSB.foldl' (const.(+1)) (0::Int) . VSB.scanl (flip const) (0::Word8))
+                                   (  B.foldl' (const.(+1)) (0::Int) .   B.scanl (flip const) (0::Word8))
+           , fuse "map-up"         (VSB.foldl' (const.(+6)) (0::Int) . VSB.map (*4))
+                                   (  B.foldl' (const.(+6)) (0::Int) .   B.map (*4))
+           , fuse "up-map"         (VSB.map (+7) . VSB.scanl const (0::Word8))
+                                   (  B.map (+7) .   B.scanl const (0::Word8))
+           , fuse "filter-up"      (VSB.foldl' (const.(+8)) (0::Int) . VSB.filter (/=105))
+                                   (  B.foldl' (const.(+8)) (0::Int) .   B.filter (/=105))
+           , fuse "up-filter"      (VSB.filter (/=106) . VSB.scanl (flip const) (0::Word8))
+                                   (  B.filter (/=106) .   B.scanl (flip const) (0::Word8))
+           , fuse "noacc-up"       (VSB.foldl' (const.(+1)) (0::Word8) . (VSB.map (+1) . VSB.filter (/=110)))
+                                   (  B.foldl' (const.(+1)) (0::Word8) . (  B.map (+1) .   B.filter (/=110)))
+           , fuse "up-noacc"       ((VSB.map (+1) . VSB.filter (/=111)) . VSB.scanl (flip const) (0::Word8))
+                                   ((  B.map (+1) .   B.filter (/=111)) .   B.scanl (flip const) (0::Word8))
+           ]
+
+         , bgroup "down_loops"
+           [ fuse "down-down"      (VSB.foldr (const (+9))  (0::Word8) . VSB.scanr const (0::Word8))
+                                   (  B.foldr (const (+9))  (0::Word8) .   B.scanr const (0::Word8))
+           , fuse "map-down"       (VSB.foldr (const (+10)) (0::Word8) . VSB.map (*2))
+                                   (  B.foldr (const (+10)) (0::Word8) .   B.map (*2))
+           , fuse "down-map"       (VSB.map (*2) . VSB.scanr const (0::Word8))
+                                   (  B.map (*2) .   B.scanr const (0::Word8))
+           , fuse "filter-down"    (VSB.foldr (const (+11)) (0::Word8) . VSB.filter (/=106))
+                                   (  B.foldr (const (+11)) (0::Word8) .   B.filter (/=106))
+           , fuse "down-filter"    (VSB.filter (/=107) . VSB.scanr const (0::Word8))
+                                   (  B.filter (/=107) .   B.scanr const (0::Word8))
+           , fuse "noacc-down"     (VSB.foldr (const (+1)) (0::Word8) . (VSB.map (+1) . VSB.filter (/=116)))
+                                   (  B.foldr (const (+1)) (0::Word8) . (  B.map (+1) .   B.filter (/=116)))
+           , fuse "down-noacc"     ((VSB.map (+1) . VSB.filter (/=101)) . VSB.scanr const (0::Word8))
+                                   ((  B.map (+1) .   B.filter (/=101)) .   B.scanr const (0::Word8))
+           ]
+
+         , bgroup "misc"
+           [ fuse "length-loop"    (VSB.length  . VSB.filter (/=105))
+                                   (  B.length  .   B.filter (/=105))
+           , fuse "maximum-loop"   (VSB.maximum . VSB.map (*4))
+                                   (  B.maximum .   B.map (*4))
+           , fuse "minimum-loop"   (VSB.minimum . VSB.map (+6))
+                                   (  B.minimum .   B.map (+6))
+           ]
+
+         , bgroup "big"
+           [ fuse "big_map-map"       (VSB.map (subtract 3) . VSB.map (+7) . VSB.map (*2) . VSB.map (+4))
+                                      (  B.map (subtract 3) .   B.map (+7) .   B.map (*2) .   B.map (+4))
+           , fuse "big_filter-filter" (VSB.filter (/=103) . VSB.filter (/=104) . VSB.filter (/=101) . VSB.filter (/=102))
+                                      (  B.filter (/=103) .   B.filter (/=104) .   B.filter (/=101) .   B.filter (/=102))
+           , fuse "big_filter-map"    (VSB.map (*2) . VSB.filter (/=104) . VSB.map (+6) . VSB.filter (/=103) . VSB.map (+5))
+                                      (  B.map (*2) .   B.filter (/=104) .   B.map (+6) .   B.filter (/=103) .   B.map (+5))
+           ]
+         ]
     ]
 
 

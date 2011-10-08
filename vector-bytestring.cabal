@@ -65,14 +65,14 @@ executable bench
   if !flag(benchmark)
     buildable: False
 
-  main-is:        bench.hs
-  build-depends:  base       >= 4     && < 4.5
-               ,  primitive  >= 0.3.1 && < 0.5
-               ,  ghc-prim   >= 0.2   && < 0.3
-               ,  vector     >= 0.9   && < 0.10
-               ,  bytestring
-               ,  criterion
-               ,  deepseq
-  ghc-options:    -Wall -O2 -funbox-strict-fields
-  c-sources:      cbits/bytestring.c
-  include-dirs:   include
+  main-is:       bench.hs
+  build-depends: base       >= 4     && < 4.5
+               , primitive  >= 0.3.1 && < 0.5
+               , ghc-prim   >= 0.2   && < 0.3
+               , vector     >= 0.9   && < 0.10
+               , bytestring
+               , criterion
+               , deepseq
+  ghc-options:   -Wall -O2 -funbox-strict-fields
+  c-sources:     cbits/bytestring.c
+  include-dirs:  include

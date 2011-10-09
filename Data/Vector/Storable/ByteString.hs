@@ -1131,7 +1131,6 @@ index = (VS.!)
 -- | /O(n)/ The 'elemIndex' function returns the index of the first
 -- element in the given 'ByteString' which is equal to the query
 -- element, or 'Nothing' if there is no such element.
--- This implementation uses memchr(3).
 elemIndex :: Word8 -> ByteString -> Maybe Int
 elemIndex = VS.elemIndex
 {-# INLINE elemIndex #-}

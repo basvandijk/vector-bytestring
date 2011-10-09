@@ -14,9 +14,12 @@ module Main where
 --------------------------------------------------------------------------------
 
 -- from base:
+import Control.Exception ( evaluate )
 import Data.Word         ( Word8 )
 import Data.Char         ( isUpper )
 import Data.Monoid       ( mappend )
+import System.IO         ( withFile, IOMode(ReadMode) )
+import Foreign.C.String  ( withCString, withCStringLen )
 
 import qualified Data.List as List ( replicate )
 
@@ -31,16 +34,19 @@ import qualified Data.Vector.Storable.ByteString             as VSB
 import qualified Data.Vector.Storable.ByteString.Lazy        as VSBL
 import qualified Data.Vector.Storable.ByteString.Char8       as VSB8
 import qualified Data.Vector.Storable.ByteString.Lazy.Char8  as VSBL8
-
-import Data.Vector.Storable.ByteString.Internal ( c2w, w2c )
+import qualified Data.Vector.Storable.ByteString.Unsafe      as VSBU
+import qualified Data.Vector.Storable.ByteString.Internal    as VSBI
+import           Data.Vector.Storable.ByteString.Internal ( c2w, w2c )
 
 -- from bytestring:
 import qualified Data.ByteString                             as B
 import qualified Data.ByteString.Lazy                        as BL
 import qualified Data.ByteString.Char8                       as B8
 import qualified Data.ByteString.Lazy.Char8                  as BL8
+import qualified Data.ByteString.Unsafe                      as BU
+import qualified Data.ByteString.Internal                    as BI
 
-import qualified Data.ByteString.Lazy.Internal as BLI
+import qualified Data.ByteString.Lazy.Internal               as BLI
 
 
 --------------------------------------------------------------------------------
@@ -111,14 +117,17 @@ import qualified Data.ByteString.Lazy.Internal as BLI
 -- Main
 --------------------------------------------------------------------------------
 
+deepEvaluate :: NFData a => a -> IO ()
+deepEvaluate = evaluate . rnf
+
 main :: IO ()
 main = do
   let dict = "tests/data"
 
-  vb    <- VSB.readFile dict
-  b     <-   B.readFile dict
-  vbl   <-VSBL.readFile dict
-  bl    <-  BL.readFile dict
+  vb  <- VSB.readFile dict
+  b   <-   B.readFile dict
+  vbl <-VSBL.readFile dict
+  bl  <-  BL.readFile dict
 
   rnf (vb, b, vbl, bl) `seq`
     defaultMain $
@@ -200,8 +209,8 @@ main = do
     , let
           foldlF  y x = y + x
           foldlF8 y x = w2c $ foldlF (c2w y) (c2w x)
-          z  = 0
-          z8 = w2c z
+          !z  = 0
+          !z8 = w2c z
 
           -- TODO:
           -- Enabling these arguments instead of the former causes GHC to loop!!!
@@ -227,7 +236,8 @@ main = do
 
     , let foldl1F  y x = x + y
           foldl1F8 y x = w2c $ foldl1F (c2w y) (c2w x)
-          n    = 100000
+          n    = 100000 -- Increasing this causes stack overflows in:
+                        -- foldl1/strict/Word8/vector !!!
           n64  = fromIntegral n
           vb2  =  VSB.take n   vb
           b2   =    B.take n   b
@@ -264,7 +274,8 @@ main = do
 
     , let foldr1F  y x = x + y
           foldr1F8 y x = w2c $ foldr1F (c2w y) (c2w x)
-          n    = 100000
+          n    = 100000 -- Increasing this causes stack overflows in:
+                        -- foldr1/strict/Char8/vector !!!
           n64  = fromIntegral n
           vb2  =  VSB.take n   vb
           b2   =    B.take n   b
@@ -611,11 +622,25 @@ main = do
                      (nf  (VSBL.index vbl) ix64)
                      (nf    (BL.index bl)  ix64)
 
-    -- TODO: elemIndex
-    -- TODO: elemIndices
-    -- TODO: elemIndexEnd
-    -- TODO: findIndex
-    -- TODO: findIndices
+    , let !a  = 255
+          !a8 = w2c a
+      in BOOA(elemIndex, a, a8, vb, b, vbl, bl)
+
+    , let !a  = c2w a8
+          !a8 = 'a'
+      in BOOA(elemIndices, a, a8, vb, b, vbl, bl)
+
+    , let !a  = 255
+          !a8 = w2c a
+      in BLAA(elemIndexEnd, a, a8, vb, b)
+
+    , let findF  = (==255)
+          findF8 = findF . c2w
+      in BOOA(findIndex, findF, findF8, vb, b, vbl, bl)
+
+    , let findIndicesF  = findIndicesF8 . w2c
+          findIndicesF8 = isUpper
+      in BOOA(findIndices, findIndicesF, findIndicesF8, vb, b, vbl, bl)
 
     , let !c  = c2w c8
           !c8 = 'a'
@@ -627,9 +652,42 @@ main = do
 
     , BOOBIN(zip,   vb, vb,   b, b,   vbl, vbl,   bl, bl)
 
-    -- TODO: zipWith
-    -- TODO: zipWith_Word8
-    -- TODO: unzip
+    , let zipWithF  x y = fromIntegral x + fromIntegral y :: Int
+          zipWithF8 x y = zipWithF (c2w x) (c2w y)
+      in boo "zipWith" (nf   (VSB.zipWith zipWithF  vb)  vb)
+                       (nf     (B.zipWith zipWithF  b)   b)
+                       (nf  (VSB8.zipWith zipWithF8 vb)  vb)
+                       (nf    (B8.zipWith zipWithF8 b)   b)
+                       (nf  (VSBL.zipWith zipWithF  vbl) vbl)
+                       (nf    (BL.zipWith zipWithF  bl)  bl)
+                       (nf (VSBL8.zipWith zipWithF8 vbl) vbl)
+                       (nf   (BL8.zipWith zipWithF8 bl)  bl)
+
+    , let zipWithF  x y = x + y :: Word8
+          zipWithF8 x y = zipWithF (c2w x) (c2w y)
+      in boo "zipWith_Word8"
+                       (nf   (VSB.zipWith zipWithF  vb)  vb)
+                       (nf     (B.zipWith zipWithF  b)   b)
+                       (nf  (VSB8.zipWith zipWithF8 vb)  vb)
+                       (nf    (B8.zipWith zipWithF8 b)   b)
+                       (nf  (VSBL.zipWith zipWithF  vbl) vbl)
+                       (nf    (BL.zipWith zipWithF  bl)  bl)
+                       (nf (VSBL8.zipWith zipWithF8 vbl) vbl)
+                       (nf   (BL8.zipWith zipWithF8 bl)  bl)
+
+    , let xs  =  VSB.zip vb vb
+          xs8 = VSB8.zip vb vb
+      in rnf (xs, xs8) `seq`
+         bgroup "unzip"
+         [ bgroup "strict" $ foo  (nf   VSB.unzip xs)
+                                  (nf     B.unzip xs)
+                                  (nf  VSB8.unzip xs8)
+                                  (nf    B8.unzip xs8)
+         , bgroup "lazy"
+           [ bgroup "Word8" $ bar (nf  VSBL.unzip xs)
+                                  (nf    BL.unzip xs)
+           ]
+         ]
 
 
     ----------------------------------------------------------------------------
@@ -641,6 +699,7 @@ main = do
                  (nf VSB8.sort vb)
                  (nf   B8.sort b)
 
+
     ----------------------------------------------------------------------------
     -- * Low level conversions
     ----------------------------------------------------------------------------
@@ -650,29 +709,100 @@ main = do
     ----------------------------------------------------------------------------
     --  ** Packing 'CString's and pointers
 
-    -- TODO: packCString
-    -- TODO: packCStringLen
+    , let str = VSB8.unpack vb -- "I'm going to be a CString, Yippy!!"
+      in rnf str `seq`
+         bli "packCString" (withCString str $ \cStr ->
+                                VSB.packCString cStr >>= deepEvaluate)
+                           (withCString str $ \cStr ->
+                                  B.packCString cStr >>= deepEvaluate)
+
+    , let str = VSB8.unpack vb -- "I'm going to be a CString, Yippy!!"
+      in rnf str `seq`
+         bli "packCStringLen" (withCStringLen str $ \cStrLen ->
+                                   VSB.packCStringLen cStrLen >>= deepEvaluate)
+                              (withCStringLen str $ \cStrLen ->
+                                     B.packCStringLen cStrLen >>= deepEvaluate)
 
     ----------------------------------------------------------------------------
     -- ** Using ByteStrings as 'CString's
 
-    -- TODO: useAsCString
-    -- TODO: useAsCStringLen
+    , let f _ = return ()
+      in bli "useAsCString" (VSB.useAsCString vb f)
+                            (  B.useAsCString  b f)
+
+    , let f _ = return ()
+      in bli "useAsCStringLen" (VSB.useAsCStringLen vb f)
+                               (  B.useAsCStringLen  b f)
 
 
     ----------------------------------------------------------------------------
     --  * I\/O with 'ByteString's
     ----------------------------------------------------------------------------
 
-    -- TODO
-    ] ++
+    , blo "readFile" ( VSB.readFile dict >>= deepEvaluate)
+                     (   B.readFile dict >>= deepEvaluate)
+                     (VSBL.readFile dict >>= deepEvaluate)
+                     (  BL.readFile dict >>= deepEvaluate)
+
+    , let devnull = "/dev/null"
+      in blo "writeFile" ( VSB.writeFile devnull vb)
+                         (   B.writeFile devnull b)
+                         (VSBL.writeFile devnull vbl)
+                         (  BL.writeFile devnull bl)
+
+    , blo "hGetContents" (withFile dict ReadMode $ \h ->
+                               VSB.hGetContents h >>= deepEvaluate)
+                         (withFile dict ReadMode $ \h ->
+                                 B.hGetContents h >>= deepEvaluate)
+                         (withFile dict ReadMode $ \h ->
+                              VSBL.hGetContents h >>= deepEvaluate)
+                         (withFile dict ReadMode $ \h ->
+                                BL.hGetContents h >>= deepEvaluate)
+
+
+    ----------------------------------------------------------------------------
+    -- * Low level introduction and elimination
+    ----------------------------------------------------------------------------
+
+    , let !n  = 1000000
+          f _ = return ()
+      in bli "create" (VSBI.create n f >>= deepEvaluate)
+                      (  BI.create n f >>= deepEvaluate)
+
+    , let !n  = 1000000
+          f _ = return 500000
+      in bli "createAndTrim" (VSBI.createAndTrim n f >>= deepEvaluate)
+                             (  BI.createAndTrim n f >>= deepEvaluate)
+
+
+    ----------------------------------------------------------------------------
+    -- * Unchecked access
+    ----------------------------------------------------------------------------
+
+    , bli "unsafeHead" (nf VSBU.unsafeHead vb)
+                       (nf   BU.unsafeHead  b)
+
+    , bli "unsafeTail" (nf VSBU.unsafeTail vb)
+                       (nf   BU.unsafeTail  b)
+
+    , let !ix = 1000
+      in bli "unsafeIndex" (nf (VSBU.unsafeIndex vb) ix)
+                           (nf   (BU.unsafeIndex  b) ix)
+
+    , let !n = VSB.length vb `div` 2
+      in bli "unsafeTake" (nf (VSBU.unsafeTake n) vb)
+                          (nf   (BU.unsafeTake n) b)
+
+    , let !n = VSB.length vb `div` 2
+      in bli "unsafeDrop" (nf (VSBU.unsafeDrop n) vb)
+                          (nf   (BU.unsafeDrop n) b)
 
 
     ----------------------------------------------------------------------------
     -- Benchmarking fusion
     ----------------------------------------------------------------------------
 
-    [ bgroup "fusion" $
+    , bgroup "fusion" $
       let fuse name f g = bgroup name $ bar (nf f vb)
                                             (nf g b)
       in [ bgroup "non_directional"
@@ -777,6 +907,11 @@ bla name vb  b
          vb8 b8 = bgroup name [ bgroup "strict" $ foo vb   b
                                                       vb8  b8
                               ]
+
+bli :: Benchmarkable b => String -> b -> b -> Benchmark
+bli name vb b = bgroup name $ bar vb b
+
+--------------------------------------------------------------------------------
 
 foo :: Benchmarkable b => b -> b -> b -> b -> [Benchmark]
 foo vb  b

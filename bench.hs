@@ -933,4 +933,4 @@ instance NFData B.ByteString
 
 instance NFData BL.ByteString where
     rnf BLI.Empty = ()
-    rnf (BLI.Chunk c cs) = rnf c `seq` rnf cs
+    rnf (BLI.Chunk _ cs) = rnf cs

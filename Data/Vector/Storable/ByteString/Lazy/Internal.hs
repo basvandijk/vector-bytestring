@@ -53,7 +53,7 @@ data ByteString = Empty | Chunk {-# UNPACK #-} !S.ByteString ByteString
 
 instance NFData ByteString where
     rnf Empty = ()
-    rnf (Chunk c cs) = rnf c `seq` rnf cs
+    rnf (Chunk _ cs) = rnf cs
 
 ------------------------------------------------------------------------
 

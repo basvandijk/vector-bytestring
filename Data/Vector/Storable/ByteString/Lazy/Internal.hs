@@ -70,8 +70,8 @@ checkInvariant :: ByteString -> ByteString
 checkInvariant Empty = Empty
 checkInvariant (Chunk c cs)
     | VS.length c > 0 = Chunk c (checkInvariant cs)
-    | otherwise = error $ "Data.ByteString.Lazy: invariant violation:"
-               ++ show (Chunk c cs)
+    | otherwise = error $ "Data.Vector.Storable.ByteString.Lazy: " ++
+                          "invariant violation:" ++ show (Chunk c cs)
 
 ------------------------------------------------------------------------
 

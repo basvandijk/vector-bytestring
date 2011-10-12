@@ -17,6 +17,13 @@ description:
 
 extra-source-files: README.markdown
 
+                    tests/*.hs
+                    tests/data
+                    tests/macros.m4
+                    tests/Makefile
+                    tests/spellcheck-input.txt
+                    tests/Usr.Dict.Words
+
 source-repository head
   Type:     git
   Location: git://github.com/basvandijk/vector-bytestring.git

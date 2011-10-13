@@ -179,9 +179,9 @@ main = do
     -- * Transforming ByteStrings
     ----------------------------------------------------------------------------
 
-    , let mapF  = (+1)
-          mapF8 = w2c . mapF . c2w
-      in BOOA(map, mapF, mapF8, vb, b, vbl, bl)
+    , let f  = (+1)
+          f8 = w2c . f . c2w
+      in BOOA(map, f, f8, vb, b, vbl, bl)
 
     , BLO(reverse, vb, b, vbl, bl)
 
@@ -189,7 +189,7 @@ main = do
           !z8 = w2c z
       in BOOA(intersperse, z, z8,  vb, b, vbl, bl)
 
-    , let n = 100
+    , let n      = 100
           vbsN   = List.replicate n vb
           bsN    = List.replicate n b
           vblsN  = List.replicate n vbl
@@ -197,7 +197,7 @@ main = do
       in rnf (vbsN, bsN, vblsN, blsN) `seq`
          BLOBIN(intercalate,   vb, vbsN,   b, bsN,   vbl, vblsN,   bl, blsN)
 
-    , let m = 5
+    , let m      = 5
           vbsM   = List.replicate m vb
           bsM    = List.replicate m b
           vblsM  = List.replicate m vbl
@@ -211,94 +211,96 @@ main = do
     ----------------------------------------------------------------------------
 
     , let
-          foldlF  y x = y + x
-          foldlF8 y x = w2c $ foldlF (c2w y) (c2w x)
-          !z  = 0
-          !z8 = w2c z
+          f  y x = y + x
+          f8 y x = w2c $ f (c2w y) (c2w x)
+          !z     = 0
+          !z8    = w2c z
 
           -- TODO:
           -- Enabling these arguments instead of the former causes GHC to loop!!!
-          -- foldlF  xs x = x:xs
-          -- foldlF8 xs x = x:xs
+          -- See ticket: http://hackage.haskell.org/trac/ghc/ticket/5550
+
+          -- f  xs x = x:xs
+          -- f8 xs x = x:xs
           -- z  = []
           -- z8 = []
 
-      in BOOA(foldl, foldlF z, foldlF8 z8, vb, b, vbl, bl)
+      in BOOA(foldl, f z, f8 z8, vb, b, vbl, bl)
 
-    , let foldl'F  y x = x + y
-          foldl'F8 y x = w2c $ foldl'F (c2w y) (c2w x)
-          !z  = 0
-          !z8 = w2c z
-      in boo "foldl'" (nf   (VSB.foldl' foldl'F  z)  vb)
-                      (nf     (B.foldl' foldl'F  z)  b)
-                      (nf  (VSB8.foldl' foldl'F8 z8) vb)
-                      (nf    (B8.foldl' foldl'F8 z8) b)
-                      (nf  (VSBL.foldl' foldl'F  z)  vbl)
-                      (nf    (BL.foldl' foldl'F  z)  bl)
-                      (nf (VSBL8.foldl' foldl'F8 z8) vbl)
-                      (nf   (BL8.foldl' foldl'F8 z8) bl)
+    , let f  y x = x + y
+          f8 y x = w2c $ f (c2w y) (c2w x)
+          !z     = 0
+          !z8    = w2c z
+      in boo "foldl'" (nf   (VSB.foldl' f  z)  vb)
+                      (nf     (B.foldl' f  z)  b)
+                      (nf  (VSB8.foldl' f8 z8) vb)
+                      (nf    (B8.foldl' f8 z8) b)
+                      (nf  (VSBL.foldl' f  z)  vbl)
+                      (nf    (BL.foldl' f  z)  bl)
+                      (nf (VSBL8.foldl' f8 z8) vbl)
+                      (nf   (BL8.foldl' f8 z8) bl)
 
-    , let foldl1F  y x = x + y
-          foldl1F8 y x = w2c $ foldl1F (c2w y) (c2w x)
-          n    = 100000 -- Increasing this causes stack overflows in:
-                        -- foldl1/strict/Word8/vector !!!
-          n64  = fromIntegral n
-          vb2  =  VSB.take n   vb
-          b2   =    B.take n   b
-          vbl2 = VSBL.take n64 vbl
-          bl2  =   BL.take n64 bl
+    , let f  y x = x + y
+          f8 y x = w2c $ f (c2w y) (c2w x)
+          n      = 100000 -- Increasing this causes stack overflows in:
+                          -- foldl1/strict/Word8/vector !!!
+          n64    = fromIntegral n
+          vb2    =  VSB.take n   vb
+          b2     =    B.take n   b
+          vbl2   = VSBL.take n64 vbl
+          bl2    =   BL.take n64 bl
       in rnf (vb2, b2, vbl2, bl2) `seq`
-         BOOA(foldl1, foldl1F, foldl1F8, vb2, b2, vbl2, bl2)
+         BOOA(foldl1, f, f8, vb2, b2, vbl2, bl2)
 
-    , let foldl1'F  y x = x + y
-          foldl1'F8 y x = w2c $ foldl1'F (c2w y) (c2w x)
-      in boo "foldl1'" (nf   (VSB.foldl1' foldl1'F)  vb)
-                       (nf     (B.foldl1' foldl1'F)  b)
-                       (nf  (VSB8.foldl1' foldl1'F8) vb)
-                       (nf    (B8.foldl1' foldl1'F8) b)
-                       (nf  (VSBL.foldl1' foldl1'F)  vbl)
-                       (nf    (BL.foldl1' foldl1'F)  bl)
-                       (nf (VSBL8.foldl1' foldl1'F8) vbl)
-                       (nf   (BL8.foldl1' foldl1'F8) bl)
+    , let f  y x = x + y
+          f8 y x = w2c $ f (c2w y) (c2w x)
+      in boo "foldl1'" (nf   (VSB.foldl1' f)  vb)
+                       (nf     (B.foldl1' f)  b)
+                       (nf  (VSB8.foldl1' f8) vb)
+                       (nf    (B8.foldl1' f8) b)
+                       (nf  (VSBL.foldl1' f)  vbl)
+                       (nf    (BL.foldl1' f)  bl)
+                       (nf (VSBL8.foldl1' f8) vbl)
+                       (nf   (BL8.foldl1' f8) bl)
 
-    , let foldrF  = (:)
-          foldrF8 = (:)
+    , let f  = (:)
+          f8 = (:)
           z  = []
           z8 = []
-      in BOOA(foldr, foldrF  z, foldrF8 z8, vb, b, vbl, bl)
+      in BOOA(foldr, f  z, f8 z8, vb, b, vbl, bl)
 
-    , let foldr'F  y x = x + y
-          foldr'F8 y x = w2c $ foldr'F (c2w y) (c2w x)
-          !z  = 0
-          !z8 = w2c z
-      in bla "foldr'" (nf   (VSB.foldr' foldr'F  z)  vb)
-                      (nf     (B.foldr' foldr'F  z)  b)
-                      (nf  (VSB8.foldr' foldr'F8 z8) vb)
-                      (nf    (B8.foldr' foldr'F8 z8) b)
+    , let f  y x = x + y
+          f8 y x = w2c $ f (c2w y) (c2w x)
+          !z     = 0
+          !z8    = w2c z
+      in bla "foldr'" (nf   (VSB.foldr' f  z)  vb)
+                      (nf     (B.foldr' f  z)  b)
+                      (nf  (VSB8.foldr' f8 z8) vb)
+                      (nf    (B8.foldr' f8 z8) b)
 
-    , let foldr1F  y x = x + y
-          foldr1F8 y x = w2c $ foldr1F (c2w y) (c2w x)
-          n    = 100000 -- Increasing this causes stack overflows in:
-                        -- foldr1/strict/Char8/vector !!!
-          n64  = fromIntegral n
-          vb2  =  VSB.take n   vb
-          b2   =    B.take n   b
-          vbl2 = VSBL.take n64 vbl
-          bl2  =   BL.take n64 bl
+    , let f  y x = x + y
+          f8 y x = w2c $ f (c2w y) (c2w x)
+          n      = 100000 -- Increasing this causes stack overflows in:
+                          -- foldr1/strict/Char8/vector !!!
+          n64    = fromIntegral n
+          vb2    =  VSB.take n   vb
+          b2     =    B.take n   b
+          vbl2   = VSBL.take n64 vbl
+          bl2    =   BL.take n64 bl
       in rnf (vb2, b2, vbl2, bl2) `seq`
-         BOOA(foldr1, foldr1F, foldr1F8, vb2, b2, vbl2, bl2)
+         BOOA(foldr1, f, f8, vb2, b2, vbl2, bl2)
 
-    , let foldr1'F  y x = x + y
-          foldr1'F8 y x = w2c $ foldr1'F (c2w y) (c2w x)
-      in bla "foldr1'" (nf   (VSB.foldr1' foldr1'F)  vb)
-                       (nf     (B.foldr1' foldr1'F)  b)
-                       (nf  (VSB8.foldr1' foldr1'F8) vb)
-                       (nf    (B8.foldr1' foldr1'F8) b)
+    , let f  y x = x + y
+          f8 y x = w2c $ f (c2w y) (c2w x)
+      in bla "foldr1'" (nf   (VSB.foldr1' f)  vb)
+                       (nf     (B.foldr1' f)  b)
+                       (nf  (VSB8.foldr1' f8) vb)
+                       (nf    (B8.foldr1' f8) b)
 
     ----------------------------------------------------------------------------
     -- ** Special folds
 
-    , let m = 5
+    , let m      = 5
           vbsM   = List.replicate m vb
           bsM    = List.replicate m b
           vblsM  = List.replicate m vbl
@@ -317,13 +319,13 @@ main = do
                          (nf (VSBL8.concatMap (VSBL8.replicate r64)) vbl)
                          (nf   (BL8.concatMap (  BL8.replicate r64)) bl)
 
-    , let anyF  = (== 255)
-          anyF8 = anyF . c2w
-      in BOOA(any, anyF, anyF8, vb, b, vbl, bl)
+    , let p  = (== 255)
+          p8 = p . c2w
+      in BOOA(any, p, p8, vb, b, vbl, bl)
 
-    , let allF  = (<= 255)
-          allF8 = allF . c2w
-      in BOOA(all, allF, allF8, vb, b, vbl, bl)
+    , let p  = (<= 255)
+          p8 = p . c2w
+      in BOOA(all, p, p8, vb, b, vbl, bl)
 
     , BOO4(maximum, vb, b, vbl, bl)
     , BOO4(minimum, vb, b, vbl, bl)
@@ -336,47 +338,47 @@ main = do
     ----------------------------------------------------------------------------
     -- ** Scans
 
-    , let scanlF  x y = x + y
-          scanlF8 x y = w2c $ scanlF (c2w x) (c2w y)
-          !z  = 1
-          !z8 = w2c z
-          n = 1000 -- If you increase this you get stack space overflows in:
-                   -- scanl/lazy/Word8/vector
-                   -- scanl/lazy/Word8/bytestring
-                   -- scanl/lazy/Char8/vector
-                   -- scanl/lazy/Char8/bytestring
-          n64  = fromIntegral n
-          vb2  =  VSB.take n   vb
-          b2   =    B.take n   b
-          vbl2 = VSBL.take n64 vbl
-          bl2  =   BL.take n64 bl
+    , let f  x y = x + y
+          f8 x y = w2c $ f (c2w x) (c2w y)
+          !z     = 1
+          !z8    = w2c z
+          n      = 1000 -- If you increase this you get stack space overflows in:
+                        -- scanl/lazy/Word8/vector
+                        -- scanl/lazy/Word8/bytestring
+                        -- scanl/lazy/Char8/vector
+                        -- scanl/lazy/Char8/bytestring
+          n64    = fromIntegral n
+          vb2    =  VSB.take n   vb
+          b2     =    B.take n   b
+          vbl2   = VSBL.take n64 vbl
+          bl2    =   BL.take n64 bl
       in rnf (vb2, b2, vbl2, bl2) `seq`
-         BOOA(scanl, scanlF z, scanlF8 z8, vb2, b2, vbl2, bl2)
+         BOOA(scanl, f z, f8 z8, vb2, b2, vbl2, bl2)
 
-    , let scanl1F  x y = x + y
-          scanl1F8 x y = w2c $ scanl1F (c2w x) (c2w y)
-      in BLAA(scanl1, scanl1F, scanl1F8, vb, b)
+    , let f  x y = x + y
+          f8 x y = w2c $ f (c2w x) (c2w y)
+      in BLAA(scanl1, f, f8, vb, b)
 
-    , let scanrF  x y = x + y
-          scanrF8 x y = w2c $ scanrF (c2w x) (c2w y)
-          !z  = 1
-          !z8 = w2c z
-      in BLAA(scanr, scanrF z, scanrF8 z8, vb, b)
+    , let f  x y = x + y
+          f8 x y = w2c $ f (c2w x) (c2w y)
+          !z     = 1
+          !z8    = w2c z
+      in BLAA(scanr, f z, f8 z8, vb, b)
 
-    , let scanr1F  x y = x + y
-          scanr1F8 x y = w2c $ scanr1F (c2w x) (c2w y)
-      in BLAA(scanr1, scanr1F, scanr1F8, vb, b)
+    , let f  x y = x + y
+          f8 x y = w2c $ f (c2w x) (c2w y)
+      in BLAA(scanr1, f, f8, vb, b)
 
     ----------------------------------------------------------------------------
     -- ** Accumulating maps
 
-    , let mapAccumLF  acc x = (x:acc, x * x + x)
-          mapAccumLF8 acc c = (c:acc, w2c $ c2w c * c2w c + c2w c)
-      in BOOA(mapAccumL, mapAccumLF [], mapAccumLF8 [], vb, b, vbl, bl)
+    , let f  acc x = (x:acc, x * x + x)
+          f8 acc c = (c:acc, w2c $ c2w c * c2w c + c2w c)
+      in BOOA(mapAccumL, f [], f8 [], vb, b, vbl, bl)
 
-    , let mapAccumRF  acc x = (x:acc, x * x + x)
-          mapAccumRF8 acc c = (c:acc, w2c $ c2w c * c2w c + c2w c)
-      in BOOA(mapAccumR, mapAccumRF [], mapAccumRF8 [], vb, b, vbl, bl)
+    , let f  acc x = (x:acc, x * x + x)
+          f8 acc c = (c:acc, w2c $ c2w c * c2w c + c2w c)
+      in BOOA(mapAccumR, f [], f8 [], vb, b, vbl, bl)
 
     ----------------------------------------------------------------------------
     -- ** Generating and unfolding ByteStrings
@@ -388,17 +390,17 @@ main = do
       in BOOB(replicate, z, z8, o, o, o64, o64)
     ]
     ++
-    ( let unfoldrF :: Int -> Maybe (Word8, Int)
-          unfoldrF 1000000 = Nothing
-          unfoldrF i       = Just (fromIntegral i, i+1)
+    ( let f :: Int -> Maybe (Word8, Int)
+          f 1000000 = Nothing
+          f i       = Just (fromIntegral i, i+1)
 
-          unfoldrF8 :: Int -> Maybe (Char, Int)
-          unfoldrF8 1000000 = Nothing
-          unfoldrF8 i       = Just (w2c $ fromIntegral i, i+1)
+          f8 :: Int -> Maybe (Char, Int)
+          f8 1000000 = Nothing
+          f8 i       = Just (w2c $ fromIntegral i, i+1)
 
-      in [ BOOA(unfoldr, unfoldrF, unfoldrF8, 0, 0, 0, 0)
+      in [ BOOA(unfoldr, f, f8, 0, 0, 0, 0)
          , let !k = 1000000
-           in BLAA(unfoldrN, k unfoldrF, k unfoldrF8, 0, 0)
+           in BLAA(unfoldrN, k f, k f8, 0, 0)
          ]
     ) ++
 
@@ -422,79 +424,79 @@ main = do
           !s64 = fromIntegral s
       in BLOSL(splitAt, s, s64, vb, b, vbl, bl)
 
-    , let takeWhileF  = (<= 255)         -- take everything
-          takeWhileF8 = takeWhileF . c2w -- take everything
-      in BOOA(takeWhile, takeWhileF, takeWhileF8, vb, b, vbl, bl)
+    , let p  = (<= 255)         -- take everything
+          p8 = p . c2w -- take everything
+      in BOOA(takeWhile, p, p8, vb, b, vbl, bl)
       -- takeWhile/strict/Char8/vector is suspiciously fast!
 
-    , let dropWhileF  = (<= 255)         -- drop everything
-          dropWhileF8 = dropWhileF . c2w -- drop everything
-      in BOOA(dropWhile, dropWhileF, dropWhileF8, vb, b, vbl, bl)
+    , let p  = (<= 255)         -- drop everything
+          p8 = p . c2w -- drop everything
+      in BOOA(dropWhile, p, p8, vb, b, vbl, bl)
       -- dropWhile/strict/Char8/vector is suspiciously fast!
 
-    , let spanF  = (<= 255)    -- span till end
-          spanF8 = spanF . c2w -- span till end
-      in BOOA(span, spanF, spanF8, vb, b, vbl, bl)
+    , let p  = (<= 255)    -- span till end
+          p8 = p . c2w -- span till end
+      in BOOA(span, p, p8, vb, b, vbl, bl)
 
       -- See if the RULE: "ByteString specialise span (x==)" fires:
-    , let spanEqF  = (==p)
-          spanEqF8 = spanEqF . c2w
-          rn   = 500000
-          rn64 = fromIntegral rn
-          p = 1
-          q = 2
-          vbSpan  =  VSB.replicate rn   p `mappend`  VSB.replicate rn   q
-          bSpan   =    B.replicate rn   p `mappend`    B.replicate rn   q
-          vblSpan = VSBL.replicate rn64 p `mappend` VSBL.replicate rn64 q
-          blSpan  =   BL.replicate rn64 p `mappend`   BL.replicate rn64 q
+    , let p       = (==x)
+          p8      = p . c2w
+          n       = 500000
+          n64     = fromIntegral n
+          x       = 1
+          y       = 2
+          vbSpan  =  VSB.replicate n   x `mappend`  VSB.replicate n   y
+          bSpan   =    B.replicate n   x `mappend`    B.replicate n   y
+          vblSpan = VSBL.replicate n64 x `mappend` VSBL.replicate n64 y
+          blSpan  =   BL.replicate n64 x `mappend`   BL.replicate n64 y
       in rnf (vbSpan, bSpan, vblSpan, blSpan) `seq`
-         boo "span_eq" (nf   (VSB.span spanEqF)  vbSpan)
-                       (nf     (B.span spanEqF)  bSpan)
-                       (nf  (VSB8.span spanEqF8) vbSpan)
-                       (nf    (B8.span spanEqF8) bSpan)
-                       (nf  (VSBL.span spanEqF)  vblSpan)
-                       (nf    (BL.span spanEqF)  blSpan)
-                       (nf (VSBL8.span spanEqF8) vblSpan)
-                       (nf   (BL8.span spanEqF8) blSpan)
+         boo "span_eq" (nf   (VSB.span p)  vbSpan)
+                       (nf     (B.span p)  bSpan)
+                       (nf  (VSB8.span p8) vbSpan)
+                       (nf    (B8.span p8) bSpan)
+                       (nf  (VSBL.span p)  vblSpan)
+                       (nf    (BL.span p)  blSpan)
+                       (nf (VSBL8.span p8) vblSpan)
+                       (nf   (BL8.span p8) blSpan)
 
-    , let spanF  = (<= 255)
-          spanF8 = spanF . c2w
-      in BLAA(spanEnd, spanF, spanF8, vb, b)
+    , let p  = (<= 255)
+          p8 = p . c2w
+      in BLAA(spanEnd, p, p8, vb, b)
 
-    , let breakF  = (>= 255)
-          breakF8 = breakF . c2w
-      in BOOA(break, breakF, breakF8, vb, b, vbl, bl)
+    , let p  = (>= 255)
+          p8 = p . c2w
+      in BOOA(break, p, p8, vb, b, vbl, bl)
 
       -- See if the RULE: "ByteString specialise break (x==)" fires:
-    , let breakEqF  = (==q)
-          breakEqF8 = breakEqF . c2w
-          rn   = 500000
-          rn64 = fromIntegral rn
-          p = 1
-          q = 2
-          vbSpan  =  VSB.replicate rn   p `mappend`  VSB.replicate rn   q
-          bSpan   =    B.replicate rn   p `mappend`    B.replicate rn   q
-          vblSpan = VSBL.replicate rn64 p `mappend` VSBL.replicate rn64 q
-          blSpan  =   BL.replicate rn64 p `mappend`   BL.replicate rn64 q
+    , let p       = (==y)
+          p8      = p . c2w
+          n       = 500000
+          n64     = fromIntegral n
+          x       = 1
+          y       = 2
+          vbSpan  =  VSB.replicate n   x `mappend`  VSB.replicate n   y
+          bSpan   =    B.replicate n   x `mappend`    B.replicate n   y
+          vblSpan = VSBL.replicate n64 x `mappend` VSBL.replicate n64 y
+          blSpan  =   BL.replicate n64 x `mappend`   BL.replicate n64 y
       in rnf (vbSpan, bSpan, vblSpan, blSpan) `seq`
-         boo "break_eq" (nf   (VSB.break breakEqF)  vbSpan)
-                        (nf     (B.break breakEqF)  bSpan)
-                        (nf  (VSB8.break breakEqF8) vbSpan)
-                        (nf    (B8.break breakEqF8) bSpan)
-                        (nf  (VSBL.break breakEqF)  vblSpan)
-                        (nf    (BL.break breakEqF)  blSpan)
-                        (nf (VSBL8.break breakEqF8) vblSpan)
-                        (nf   (BL8.break breakEqF8) blSpan)
+         boo "break_eq" (nf   (VSB.break p)  vbSpan)
+                        (nf     (B.break p)  bSpan)
+                        (nf  (VSB8.break p8) vbSpan)
+                        (nf    (B8.break p8) bSpan)
+                        (nf  (VSBL.break p)  vblSpan)
+                        (nf    (BL.break p)  blSpan)
+                        (nf (VSBL8.break p8) vblSpan)
+                        (nf   (BL8.break p8) blSpan)
 
-    , let breakF  = (>= 255)
-          breakF8 = breakF . c2w
-      in BLAA(breakEnd, breakF, breakF8, vb, b)
+    , let p  = (>= 255)
+          p8 = p . c2w
+      in BLAA(breakEnd, p, p8, vb, b)
 
     , BLO(group, vb, b, vbl, bl)
 
-    , let groupByF  x y = x < y
-          groupByF8 x y = groupByF (c2w x) (c2w y)
-      in BOOA(groupBy, groupByF, groupByF8, vb, b, vbl, bl)
+    , let r  x y = x < y
+          r8 x y = r (c2w x) (c2w y)
+      in BOOA(groupBy, r, r8, vb, b, vbl, bl)
 
     , BLO(inits, vb, b, vbl, bl)
     , BLO(tails, vb, b, vbl, bl)
@@ -506,9 +508,9 @@ main = do
           !nlChar = '\n'
       in BOOA(split, nlWord, nlChar, vb, b, vbl, bl)
 
-    , let splitWithF  = splitWithF8 . w2c
-          splitWithF8 = (=='a')
-      in BOOA(splitWith, splitWithF, splitWithF8, vb, b, vbl, bl)
+    , let p  = p8 . w2c
+          p8 = (=='a')
+      in BOOA(splitWith, p, p8, vb, b, vbl, bl)
 
 
     ----------------------------------------------------------------------------
@@ -564,7 +566,7 @@ main = do
          bli "findSubstring" (nf (VSB.findSubstring vbp) vb)
                              (nf   (B.findSubstring bp)  b)
 
-    , let s = "the"
+    , let s   = "the"
           vbp = VSB8.pack s
           bp  =   B8.pack s
       in rnf (vbp, bp) `seq`
@@ -590,19 +592,19 @@ main = do
     ----------------------------------------------------------------------------
     -- ** Searching with a predicate
 
-    , let findF  = (==255)
-          findF8 = findF . c2w
-      in BOOA(find, findF, findF8, vb, b, vbl, bl)
+    , let p  = (==255)
+          p8 = p . c2w
+      in BOOA(find, p, p8, vb, b, vbl, bl)
 
-    , let filterF  = filterF8 . w2c
-          filterF8 = isUpper
-      in BOOA(filter, filterF, filterF8, vb, b, vbl, bl)
+    , let p  = p8 . w2c
+          p8 = isUpper
+      in BOOA(filter, p, p8, vb, b, vbl, bl)
 
-    , let partitionF  = isUpper . w2c
-      in blo "partition" (nf  (VSB.partition partitionF) vb)
-                         (nf    (B.partition partitionF) b)
-                         (nf (VSBL.partition partitionF) vbl)
-                         (nf   (BL.partition partitionF) bl)
+    , let p  = isUpper . w2c
+      in blo "partition" (nf  (VSB.partition p) vb)
+                         (nf    (B.partition p) b)
+                         (nf (VSBL.partition p) vbl)
+                         (nf   (BL.partition p) bl)
 
 
     ----------------------------------------------------------------------------
@@ -628,13 +630,13 @@ main = do
           !a8 = w2c a
       in BLAA(elemIndexEnd, a, a8, vb, b)
 
-    , let findF  = (==255)
-          findF8 = findF . c2w
-      in BOOA(findIndex, findF, findF8, vb, b, vbl, bl)
+    , let p  = (==255)
+          p8 = p . c2w
+      in BOOA(findIndex, p, p8, vb, b, vbl, bl)
 
-    , let findIndicesF  = findIndicesF8 . w2c
-          findIndicesF8 = isUpper
-      in BOOA(findIndices, findIndicesF, findIndicesF8, vb, b, vbl, bl)
+    , let p  = p8 . w2c
+          p8 = isUpper
+      in BOOA(findIndices, p, p8, vb, b, vbl, bl)
 
     , let !c  = c2w c8
           !c8 = 'a'
@@ -653,28 +655,28 @@ main = do
                 (nf (VSBL8.zip vbl) vbl)
                 (nf   (BL8.zip bl)  bl)
 
-    , let zipWithF  x y = fromIntegral x + fromIntegral y :: Int
-          zipWithF8 x y = zipWithF (c2w x) (c2w y)
-      in boo "zipWith" (nf   (VSB.zipWith zipWithF  vb)  vb)
-                       (nf     (B.zipWith zipWithF  b)   b)
-                       (nf  (VSB8.zipWith zipWithF8 vb)  vb)
-                       (nf    (B8.zipWith zipWithF8 b)   b)
-                       (nf  (VSBL.zipWith zipWithF  vbl) vbl)
-                       (nf    (BL.zipWith zipWithF  bl)  bl)
-                       (nf (VSBL8.zipWith zipWithF8 vbl) vbl)
-                       (nf   (BL8.zipWith zipWithF8 bl)  bl)
+    , let f  x y = fromIntegral x + fromIntegral y :: Int
+          f8 x y = f (c2w x) (c2w y)
+      in boo "zipWith" (nf   (VSB.zipWith f  vb)  vb)
+                       (nf     (B.zipWith f  b)   b)
+                       (nf  (VSB8.zipWith f8 vb)  vb)
+                       (nf    (B8.zipWith f8 b)   b)
+                       (nf  (VSBL.zipWith f  vbl) vbl)
+                       (nf    (BL.zipWith f  bl)  bl)
+                       (nf (VSBL8.zipWith f8 vbl) vbl)
+                       (nf   (BL8.zipWith f8 bl)  bl)
 
-    , let zipWithF  x y = x + y :: Word8
-          zipWithF8 x y = zipWithF (c2w x) (c2w y)
+    , let f  x y = x + y :: Word8
+          f8 x y = f (c2w x) (c2w y)
       in boo "zipWith_Word8"
-                       (nf   (VSB.zipWith zipWithF  vb)  vb)
-                       (nf     (B.zipWith zipWithF  b)   b)
-                       (nf  (VSB8.zipWith zipWithF8 vb)  vb)
-                       (nf    (B8.zipWith zipWithF8 b)   b)
-                       (nf  (VSBL.zipWith zipWithF  vbl) vbl)
-                       (nf    (BL.zipWith zipWithF  bl)  bl)
-                       (nf (VSBL8.zipWith zipWithF8 vbl) vbl)
-                       (nf   (BL8.zipWith zipWithF8 bl)  bl)
+                       (nf   (VSB.zipWith f  vb)  vb)
+                       (nf     (B.zipWith f  b)   b)
+                       (nf  (VSB8.zipWith f8 vb)  vb)
+                       (nf    (B8.zipWith f8 b)   b)
+                       (nf  (VSBL.zipWith f  vbl) vbl)
+                       (nf    (BL.zipWith f  bl)  bl)
+                       (nf (VSBL8.zipWith f8 vbl) vbl)
+                       (nf   (BL8.zipWith f8 bl)  bl)
 
     , let xs  =  VSB.zip vb vb
           xs8 = VSB8.zip vb vb
@@ -709,18 +711,20 @@ main = do
     --  ** Packing 'CString's and pointers
 
     , let str = VSB8.unpack vb -- "I'm going to be a CString, Yippy!!"
+          doPackCString packCString =
+              withCString str $ \cStr ->
+                  packCString cStr >>= deepEvaluate
       in rnf str `seq`
-         bli "packCString" (withCString str $ \cStr ->
-                                VSB.packCString cStr >>= deepEvaluate)
-                           (withCString str $ \cStr ->
-                                  B.packCString cStr >>= deepEvaluate)
+         bli "packCString" (doPackCString VSB.packCString)
+                           (doPackCString   B.packCString)
 
     , let str = VSB8.unpack vb -- "I'm going to be a CString, Yippy!!"
+          doPackCStringLen packCStringLen =
+              withCStringLen str $ \cStrLen ->
+                  packCStringLen cStrLen >>= deepEvaluate
       in rnf str `seq`
-         bli "packCStringLen" (withCStringLen str $ \cStrLen ->
-                                   VSB.packCStringLen cStrLen >>= deepEvaluate)
-                              (withCStringLen str $ \cStrLen ->
-                                     B.packCStringLen cStrLen >>= deepEvaluate)
+         bli "packCStringLen" (doPackCStringLen VSB.packCStringLen)
+                              (doPackCStringLen   B.packCStringLen)
 
     ----------------------------------------------------------------------------
     -- ** Using ByteStrings as 'CString's
@@ -738,10 +742,11 @@ main = do
     --  * I\/O with 'ByteString's
     ----------------------------------------------------------------------------
 
-    , blo "readFile" ( VSB.readFile dict >>= deepEvaluate)
-                     (   B.readFile dict >>= deepEvaluate)
-                     (VSBL.readFile dict >>= deepEvaluate)
-                     (  BL.readFile dict >>= deepEvaluate)
+    , let doReadFile readF = readF dict >>= deepEvaluate
+      in blo "readFile" (doReadFile  VSB.readFile)
+                        (doReadFile    B.readFile)
+                        (doReadFile VSBL.readFile)
+                        (doReadFile   BL.readFile)
 
     , let devnull = "/dev/null"
       in blo "writeFile" ( VSB.writeFile devnull vb)
@@ -749,14 +754,11 @@ main = do
                          (VSBL.writeFile devnull vbl)
                          (  BL.writeFile devnull bl)
 
-    , blo "hGetContents" (withFile dict ReadMode $ \h ->
-                               VSB.hGetContents h >>= deepEvaluate)
-                         (withFile dict ReadMode $ \h ->
-                                 B.hGetContents h >>= deepEvaluate)
-                         (withFile dict ReadMode $ \h ->
-                              VSBL.hGetContents h >>= deepEvaluate)
-                         (withFile dict ReadMode $ \h ->
-                                BL.hGetContents h >>= deepEvaluate)
+    , let doHGetContents f = withFile dict ReadMode $ \h -> f h >>= deepEvaluate
+      in blo "hGetContents" (doHGetContents VSB.hGetContents)
+                            (doHGetContents   B.hGetContents)
+                            (doHGetContents VSBL.hGetContents)
+                            (doHGetContents   BL.hGetContents)
 
 
     ----------------------------------------------------------------------------
@@ -765,13 +767,15 @@ main = do
 
     , let !n  = 1000000
           f _ = return ()
-      in bli "create" (VSBI.create n f >>= deepEvaluate)
-                      (  BI.create n f >>= deepEvaluate)
+          doCreate create = create n f >>= deepEvaluate
+      in bli "create" (doCreate VSBI.create)
+                      (doCreate   BI.create)
 
     , let !n  = 1000000
           f _ = return 500000
-      in bli "createAndTrim" (VSBI.createAndTrim n f >>= deepEvaluate)
-                             (  BI.createAndTrim n f >>= deepEvaluate)
+          doCreateAndTrim createAndTrim = createAndTrim n f >>= deepEvaluate
+      in bli "createAndTrim" (doCreateAndTrim VSBI.createAndTrim)
+                             (doCreateAndTrim   BI.createAndTrim)
 
 
     ----------------------------------------------------------------------------

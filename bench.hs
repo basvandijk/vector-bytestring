@@ -66,49 +66,47 @@ import qualified Data.ByteString.Lazy.Internal               as BLI
 #define BOO4(name, vb, b, vbl, bl) BOO8(name, vb, b, vb, b, vbl, bl, vbl, bl)
 #define BOO2(name, a, a8)          BOO8(name, a, a, a8, a8, a, a, a8, a8)
 
-#define BOOA(name, a, a8, vb, b, vbl, bl)   \
-        boo "name" (nf   (VSB.name a)  vb)  \
-                   (nf     (B.name a)  b)   \
-                   (nf  (VSB8.name a8) vb)  \
-                   (nf    (B8.name a8) b)   \
-                   (nf  (VSBL.name a)  vbl) \
-                   (nf    (BL.name a)  bl)  \
-                   (nf (VSBL8.name a8) vbl) \
-                   (nf   (BL8.name a8) bl)  \
+#define BOOA8(name,  vb,  vb_,   b,  b_,   vb8,  vb8_,   b8,  b8_   \
+                  ,  vbl, vbl_,  bl, bl_,  vbl8, vbl8_,  bl8, bl8_) \
+        boo "name" (nf   (VSB.name vb)   vb_)   \
+                   (nf     (B.name b)    b_)    \
+                   (nf  (VSB8.name vb8)  vb8_)  \
+                   (nf    (B8.name b8)   b8_)   \
+                   (nf  (VSBL.name vbl)  vbl_)  \
+                   (nf    (BL.name bl)   bl_)   \
+                   (nf (VSBL8.name vbl8) vbl8_) \
+                   (nf   (BL8.name bl8)  bl8_)  \
 
-#define BOOB(name, a, a8, vb, b, vbl, bl)   \
-        boo "name" (nf   (VSB.name vb)   a) \
-                   (nf     (B.name b)    a) \
-                   (nf  (VSB8.name vb)  a8) \
-                   (nf    (B8.name b)   a8) \
-                   (nf  (VSBL.name vbl)  a) \
-                   (nf    (BL.name bl)   a) \
-                   (nf (VSBL8.name vbl) a8) \
-                   (nf   (BL8.name bl)  a8)
+#define BOOA(name, a, a8, vb, b, vbl, bl) \
+        BOOA8(name, a, vb,   a, b,   a8, vb,   a8, b \
+                  , a, vbl,  a, bl,  a8, vbl,  a8, bl)
+#define BOOB(name, a, a8, vb, b, vbl, bl) \
+        BOOA8(name, vb,  a,  b,  a,  vb,  a8,  b,  a8 \
+                  , vbl, a,  bl, a,  vbl, a8,  bl, a8)
 
-#define BLOSL(name, s, l, vb, b, vbl, bl)  \
-        blo "name" (nf   (VSB.name s) vb)  \
-                   (nf     (B.name s) b)   \
-                   (nf  (VSBL.name l) vbl) \
-                   (nf    (BL.name l) bl)  \
+#define BLOO(name,  vb, vb_,  b, b_,  vbl, vbl_,  bl, bl_) \
+        blo "name" (nf   (VSB.name vb)  vb_)  \
+                   (nf     (B.name b)   b_)   \
+                   (nf  (VSBL.name vbl) vbl_) \
+                   (nf    (BL.name bl)  bl_)  \
+
+#define BLOSL(name, s, l, vb, b, vbl, bl) \
+        BLOO(name,  s, vb,  s, b,  l, vbl,  l, bl)
 
 #define BLOBIN(name,   vb1, vb2,   b1, b2,   vbl1, vbl2,   bl1, bl2) \
-        blo "name" (nf   (VSB.name vb1)  vb2)  \
-                   (nf     (B.name b1)   b2)   \
-                   (nf  (VSBL.name vbl1) vbl2) \
-                   (nf    (BL.name bl1)  bl2)  \
-
-#define BLO(name,   vb, b, vbl, bl)   \
-        blo "name" (nf  VSB.name vb)  \
-                   (nf    B.name b)   \
-                   (nf VSBL.name vbl) \
-                   (nf   BL.name bl)  \
+        BLOO(name,  vb1, vb2,  b1, b2,  vbl1, vbl2,  bl1, bl2)
 
 #define BLAA(name, a, a8, vb, b)          \
         bla "name" (nf  (VSB.name a)  vb) \
                    (nf    (B.name a)  b)  \
                    (nf (VSB8.name a8) vb) \
                    (nf   (B8.name a8) b)
+
+#define BLO(name,   vb, b, vbl, bl)   \
+        blo "name" (nf  VSB.name vb)  \
+                   (nf    B.name b)   \
+                   (nf VSBL.name vbl) \
+                   (nf   BL.name bl)  \
 
 
 --------------------------------------------------------------------------------

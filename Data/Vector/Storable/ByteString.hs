@@ -270,8 +270,6 @@ import GHC.IO.Buffer           ( RawBuffer, Buffer(Buffer), bufRaw, bufL, bufR
                                )
 import GHC.IO.BufferedIO as Buffered ( fillReadBuffer )
 
-import GHC.Base                ( build )
-
 -- from primitive:
 import Control.Monad.Primitive ( unsafeInlineIO )
 
@@ -311,65 +309,10 @@ pack :: [Word8] -> ByteString
 pack = VS.fromList
 {-# INLINE pack #-}
 
-{-
-The following pack does not appear to be faster:
-
-import GHC.IO                  ( stToIO )
-import GHC.Prim                ( Addr#, plusAddr#, writeWord8OffAddr# )
-import GHC.Ptr                 ( Ptr(..) )
-import GHC.ST                  ( ST(..) )
-import GHC.Word                ( Word8(W8#) )
-
-pack str = unsafeCreate (L.length str) $ \(Ptr p) -> stToIO (go p str)
-    where
-      go :: Addr# -> [Word8] -> ST a ()
-      go _ []           = return ()
-      go p (W8# c : cs) = writeByte >> go (p `plusAddr#` 1#) cs
-          where
-            writeByte = ST $ \s# ->
-              case writeWord8OffAddr# p 0# c s# of
-                s2# -> (# s2#, () #)
-            {-# INLINE writeByte #-}
--}
-
 -- | /O(n)/ Converts a 'ByteString' to a @['Word8']@.
 unpack :: ByteString -> [Word8]
-unpack v = build (unpackFoldr v)
+unpack = VS.toList
 {-# INLINE unpack #-}
-
--- Have unpack fuse with good list consumers
---
--- critical this isn't strict in the acc
--- as it will break in the presence of list fusion. this is a known
--- issue with seq and build/foldr rewrite rules, which rely on lazy
--- demanding to avoid bottoms in the list.
---
-unpackFoldr :: ByteString -> (Word8 -> a -> a) -> a -> a
-unpackFoldr v f ch = unsafeInlineIO $ withForeignPtr fp $ \p ->
-    let go (-1) acc = return acc
-        go !n   acc = do
-           a <- peekByteOff p n
-           go (n-1) (a `f` acc)
-    in go (l-1) ch
-        where
-          (fp, l) = unsafeToForeignPtr0 v
-{-# INLINE [0] unpackFoldr #-}
-
-unpackList :: ByteString -> [Word8]
-unpackList v = unsafeInlineIO $ withForeignPtr fp $ \p ->
-    let go (-1) acc = return acc
-        go !n   acc = do
-           a <- peekByteOff p n
-           go (n-1) (a : acc)
-    in go (l-1) []
-        where
-          (fp, l) = unsafeToForeignPtr0 v
-{-# INLINE unpackList #-}
-
-{-# RULES
-"ByteString unpack-list" [1]  forall p  .
-    unpackFoldr p (:) [] = unpackList p
- #-}
 
 
 --------------------------------------------------------------------------------

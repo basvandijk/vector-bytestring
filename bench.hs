@@ -150,6 +150,18 @@ main = do
 
     , BOO4(unpack, vb, b, vbl, bl)
 
+    , let f  = (+1)
+          f8 = f . c2w
+          mySum = foldr (\_ z -> z) (0 :: Word8)
+      in boo "unpack_list_fuse" (nf (mySum . map f  .   VSB.unpack) vb)
+                                (nf (mySum . map f  .     B.unpack) b)
+                                (nf (mySum . map f8 .  VSB8.unpack) vb)
+                                (nf (mySum . map f8 .    B8.unpack) b)
+                                (nf (mySum . map f  .  VSBL.unpack) vbl)
+                                (nf (mySum . map f  .    BL.unpack) bl)
+                                (nf (mySum . map f8 . VSBL8.unpack) vbl)
+                                (nf (mySum . map f8 .   BL8.unpack) bl)
+
 
     ----------------------------------------------------------------------------
     --  * Basic interface

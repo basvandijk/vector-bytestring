@@ -76,26 +76,6 @@ import qualified Data.ByteString.Lazy.Internal               as BLI
                    (nf (VSBL8.name a8) vbl) \
                    (nf   (BL8.name a8) bl)  \
 
-#define BOOSL(name, s, l, vb, b, vbl, bl)  \
-        boo "name" (nf   (VSB.name s) vb)  \
-                   (nf     (B.name s) b)   \
-                   (nf  (VSB8.name s) vb)  \
-                   (nf    (B8.name s) b)   \
-                   (nf  (VSBL.name l) vbl) \
-                   (nf    (BL.name l) bl)  \
-                   (nf (VSBL8.name l) vbl) \
-                   (nf   (BL8.name l) bl)  \
-
-#define BOOBIN(name,   vb1, vb2,   b1, b2,   vbl1, vbl2,   bl1, bl2) \
-        boo "name" (nf   (VSB.name vb1)  vb2)  \
-                   (nf     (B.name b1)   b2)   \
-                   (nf  (VSB8.name vb1)  vb2)  \
-                   (nf    (B8.name b1)   b2)   \
-                   (nf  (VSBL.name vbl1) vbl2) \
-                   (nf    (BL.name bl1)  bl2)  \
-                   (nf (VSBL8.name vbl1) vbl2) \
-                   (nf   (BL8.name bl1)  bl2)  \
-
 #define BOOB(name, a, a8, vb, b, vbl, bl)   \
         boo "name" (nf   (VSB.name vb)   a) \
                    (nf     (B.name b)    a) \
@@ -105,6 +85,24 @@ import qualified Data.ByteString.Lazy.Internal               as BLI
                    (nf    (BL.name bl)   a) \
                    (nf (VSBL8.name vbl) a8) \
                    (nf   (BL8.name bl)  a8)
+
+#define BLOSL(name, s, l, vb, b, vbl, bl)  \
+        blo "name" (nf   (VSB.name s) vb)  \
+                   (nf     (B.name s) b)   \
+                   (nf  (VSBL.name l) vbl) \
+                   (nf    (BL.name l) bl)  \
+
+#define BLOBIN(name,   vb1, vb2,   b1, b2,   vbl1, vbl2,   bl1, bl2) \
+        blo "name" (nf   (VSB.name vb1)  vb2)  \
+                   (nf     (B.name b1)   b2)   \
+                   (nf  (VSBL.name vbl1) vbl2) \
+                   (nf    (BL.name bl1)  bl2)  \
+
+#define BLO(name,   vb, b, vbl, bl)   \
+        blo "name" (nf  VSB.name vb)  \
+                   (nf    B.name b)   \
+                   (nf VSBL.name vbl) \
+                   (nf   BL.name bl)  \
 
 #define BLAA(name, a, a8, vb, b)          \
         bla "name" (nf  (VSB.name a)  vb) \
@@ -136,7 +134,12 @@ main = do
     -- * Introducing and eliminating 'ByteString's
     ----------------------------------------------------------------------------
 
-      let !z  = 0
+      blo "empty" (nf (const  VSB.empty) ())
+                  (nf (const    B.empty) ())
+                  (nf (const VSBL.empty) ())
+                  (nf (const   BL.empty) ())
+
+    , let !z  = 0
           !z8 = w2c z
       in BOO2(singleton, z, z8)
 
@@ -160,15 +163,16 @@ main = do
           !z8 = w2c z
       in BOOB(snoc, z, z8, vb, b, vbl, bl)
 
-    , BOOBIN(append,   vb, vb,   b, b,   vbl, vbl,   bl, bl)
+    , BLOBIN(append,   vb, vb,   b, b,   vbl, vbl,   bl, bl)
 
     , BOO4(head,   vb, b, vbl, bl)
-    , BOO4(tail,   vb, b, vbl, bl)
     , BOO4(uncons, vb, b, vbl, bl)
     , BOO4(last,   vb, b, vbl, bl)
-    , BOO4(init,   vb, b, vbl, bl)
-    , BOO4(null,   vb, b, vbl, bl)
-    , BOO4(length, vb, b, vbl, bl)
+
+    , BLO(tail,   vb, b, vbl, bl)
+    , BLO(init,   vb, b, vbl, bl)
+    , BLO(null,   vb, b, vbl, bl)
+    , BLO(length, vb, b, vbl, bl)
 
 
     ----------------------------------------------------------------------------
@@ -179,7 +183,7 @@ main = do
           mapF8 = w2c . mapF . c2w
       in BOOA(map, mapF, mapF8, vb, b, vbl, bl)
 
-    , BOO4(reverse, vb, b, vbl, bl)
+    , BLO(reverse, vb, b, vbl, bl)
 
     , let !z  = 0
           !z8 = w2c z
@@ -191,7 +195,7 @@ main = do
           vblsN  = List.replicate n vbl
           blsN   = List.replicate n bl
       in rnf (vbsN, bsN, vblsN, blsN) `seq`
-         BOOBIN(intercalate,   vb, vbsN,   b, bsN,   vbl, vblsN,   bl, blsN)
+         BLOBIN(intercalate,   vb, vbsN,   b, bsN,   vbl, vblsN,   bl, blsN)
 
     , let m = 5
           vbsM   = List.replicate m vb
@@ -199,7 +203,7 @@ main = do
           vblsM  = List.replicate m vbl
           blsM   = List.replicate m bl
       in rnf (vbsM, bsM, vblsM, blsM) `seq`
-         BOO4(transpose, vbsM, bsM, vblsM, blsM)
+         BLO(transpose, vbsM, bsM, vblsM, blsM)
 
 
     ----------------------------------------------------------------------------
@@ -300,7 +304,7 @@ main = do
           vblsM  = List.replicate m vbl
           blsM   = List.replicate m bl
       in rnf (vbsM, bsM, vblsM, blsM) `seq`
-         BOO4(concat, vbsM, bsM, vblsM, blsM)
+         BLO(concat, vbsM, bsM, vblsM, blsM)
 
     , let !r   = 5
           !r64 = fromIntegral r
@@ -408,15 +412,15 @@ main = do
 
     [ let !t   = 260000
           !t64 = fromIntegral t
-      in BOOSL(take, t, t64, vb, b, vbl, bl)
+      in BLOSL(take, t, t64, vb, b, vbl, bl)
 
     , let !d   = 10000
           !d64 = fromIntegral d
-      in BOOSL(drop, d, d64, vb, b, vbl, bl)
+      in BLOSL(drop, d, d64, vb, b, vbl, bl)
 
     , let !s   = 260000 `div` 2
           !s64 = fromIntegral s
-      in BOOSL(splitAt, s, s64, vb, b, vbl, bl)
+      in BLOSL(splitAt, s, s64, vb, b, vbl, bl)
 
     , let takeWhileF  = (<= 255)         -- take everything
           takeWhileF8 = takeWhileF . c2w -- take everything
@@ -486,14 +490,14 @@ main = do
           breakF8 = breakF . c2w
       in BLAA(breakEnd, breakF, breakF8, vb, b)
 
-    , BOO4(group, vb, b, vbl, bl)
+    , BLO(group, vb, b, vbl, bl)
 
     , let groupByF  x y = x < y
           groupByF8 x y = groupByF (c2w x) (c2w y)
       in BOOA(groupBy, groupByF, groupByF8, vb, b, vbl, bl)
 
-    , BOO4(inits, vb, b, vbl, bl)
-    , BOO4(tails, vb, b, vbl, bl)
+    , BLO(inits, vb, b, vbl, bl)
+    , BLO(tails, vb, b, vbl, bl)
 
     ----------------------------------------------------------------------------
     -- ** Breaking into many substrings
@@ -518,16 +522,14 @@ main = do
           vblp = VSBL.take p64 vbl
           blp  =   BL.take p64 bl
       in rnf (vbp, bp, vblp, blp) `seq`
-         BOOBIN(isPrefixOf,   vbp, vb,   bp, b,   vblp, vbl,   blp, bl)
+         BLOBIN(isPrefixOf,   vbp, vb,   bp, b,   vblp, vbl,   blp, bl)
 
     , let p    = VSB.length vb - 1
           vbp  = VSB.drop p vb
           bp   =   B.drop p b
       in rnf (vbp, bp) `seq`
-         bla "isSuffixOf" (nf  (VSB.isSuffixOf vbp) vb)
-                          (nf    (B.isSuffixOf bp)  b)
-                          (nf (VSB8.isSuffixOf vbp) vb)
-                          (nf   (B8.isSuffixOf bp)  b)
+         bli "isSuffixOf" (nf (VSB.isSuffixOf vbp) vb)
+                          (nf   (B.isSuffixOf bp)  b)
 
     , let p   = 100
           m   = VSB.length vb `div` 2
@@ -536,10 +538,8 @@ main = do
           vbp = VSB.take o (VSB.drop n vb)
           bp  =   B.take o   (B.drop n b)
       in rnf (vbp, bp) `seq`
-         bla "isInfixOf" (nf  (VSB.isInfixOf vbp) vb)
-                         (nf    (B.isInfixOf bp)  b)
-                         (nf (VSB8.isInfixOf vbp) vb)
-                         (nf   (B8.isInfixOf bp)  b)
+         bli "isInfixOf" (nf (VSB.isInfixOf vbp) vb)
+                         (nf   (B.isInfixOf bp)  b)
 
     ----------------------------------------------------------------------------
     --  ** Search for arbitrary substrings
@@ -551,10 +551,8 @@ main = do
           vbp = VSB.take o (VSB.drop n vb)
           bp  =   B.take o   (B.drop n b)
       in rnf (vbp, bp) `seq`
-         bla "breakSubstring" (nf  (VSB.breakSubstring vbp) vb)
-                              (nf    (B.breakSubstring bp)  b)
-                              (nf (VSB8.breakSubstring vbp) vb)
-                              (nf   (B8.breakSubstring bp)  b)
+         bli "breakSubstring" (nf (VSB.breakSubstring vbp) vb)
+                              (nf   (B.breakSubstring bp)  b)
 
     , let p   = 100
           m   = VSB.length vb `div` 2
@@ -563,19 +561,15 @@ main = do
           vbp = VSB.take o (VSB.drop n vb)
           bp  =   B.take o   (B.drop n b)
       in rnf (vbp, bp) `seq`
-         bla "findSubstring" (nf  (VSB.findSubstring vbp) vb)
-                             (nf    (B.findSubstring bp)  b)
-                             (nf (VSB8.findSubstring vbp) vb)
-                             (nf   (B8.findSubstring bp)  b)
+         bli "findSubstring" (nf (VSB.findSubstring vbp) vb)
+                             (nf   (B.findSubstring bp)  b)
 
     , let s = "the"
           vbp = VSB8.pack s
           bp  =   B8.pack s
       in rnf (vbp, bp) `seq`
-         bla "findSubstrings" (nf  (VSB.findSubstrings vbp) vb)
-                              (nf    (B.findSubstrings bp)  b)
-                              (nf (VSB8.findSubstrings vbp) vb)
-                              (nf   (B8.findSubstrings bp)  b)
+         bli "findSubstrings" (nf (VSB.findSubstrings vbp) vb)
+                              (nf   (B.findSubstrings bp)  b)
 
 
     ----------------------------------------------------------------------------
@@ -650,7 +644,14 @@ main = do
     -- * Zipping and unzipping ByteStrings
     ----------------------------------------------------------------------------
 
-    , BOOBIN(zip,   vb, vb,   b, b,   vbl, vbl,   bl, bl)
+    , boo "zip" (nf   (VSB.zip vb)  vb)
+                (nf     (B.zip b)   b)
+                (nf  (VSB8.zip vb)  vb)
+                (nf    (B8.zip b)   b)
+                (nf  (VSBL.zip vbl) vbl)
+                (nf    (BL.zip bl)  bl)
+                (nf (VSBL8.zip vbl) vbl)
+                (nf   (BL8.zip bl)  bl)
 
     , let zipWithF  x y = fromIntegral x + fromIntegral y :: Int
           zipWithF8 x y = zipWithF (c2w x) (c2w y)
@@ -694,17 +695,15 @@ main = do
     -- * Ordered ByteStrings
     ----------------------------------------------------------------------------
 
-    , bla "sort" (nf  VSB.sort vb)
-                 (nf    B.sort b)
-                 (nf VSB8.sort vb)
-                 (nf   B8.sort b)
+    , bli "sort" (nf VSB.sort vb)
+                 (nf   B.sort b)
 
 
     ----------------------------------------------------------------------------
     -- * Low level conversions
     ----------------------------------------------------------------------------
 
-    , BOO4(copy, vb, b, vbl, bl)
+    , BLO(copy, vb, b, vbl, bl)
 
     ----------------------------------------------------------------------------
     --  ** Packing 'CString's and pointers

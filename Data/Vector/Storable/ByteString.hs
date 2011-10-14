@@ -758,7 +758,6 @@ break p v = (VS.unsafeTake n v, VS.unsafeDrop n v)
       !n = findIndexOrEnd p v
 {-# INLINE [1] break #-}
 
--- This RULE LHS is not allowed by ghc-6.4
 {-# RULES
 "ByteString specialise break (x==)" forall x.
     break ((==) x) = breakByte x
@@ -876,7 +875,7 @@ splitWith pred v
     where
       (fp, l) = unsafeToForeignPtr0 v
 
-      splitWith0 off len = unsafeInlineIO $ withForeignPtr fp $ \p ->
+      splitWith0 !off !len = unsafeInlineIO $ withForeignPtr fp $ \p ->
         let vec = VS.unsafeFromForeignPtr fp off
             go !idx
                 | idx >= len = return [vec idx]
@@ -887,8 +886,14 @@ splitWith pred v
                       then return (vec idx : splitWith0 (sepIx+1) (len-idx-1))
                       else go (idx+1)
         in go 0
-{-# INLINE splitWith #-}
+{-# INLINE [1] splitWith #-}
 
+{-# RULES
+"ByteString specialise splitWith (x==)" forall x.
+    splitWith ((==) x) = split x
+"ByteString specialise splitWith (==x)" forall x.
+    splitWith (==x) = split x
+  #-}
 
 --------------------------------------------------------------------------------
 -- * Predicates

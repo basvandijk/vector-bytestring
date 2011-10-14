@@ -15,8 +15,9 @@ module Main where
 
 -- from base:
 import Control.Exception ( evaluate )
+import Data.List         ( sortBy )
 import Data.Word         ( Word8 )
-import Data.Char         ( isUpper )
+import Data.Char         ( isUpper, isAlpha, toLower )
 import Data.Monoid       ( mappend )
 import System.IO         ( withFile, IOMode(ReadMode) )
 import Foreign.C.String  ( withCString, withCStringLen )
@@ -920,6 +921,28 @@ main = do
                                       (  B.map (*2) .   B.filter (/=104) .   B.map (+6) .   B.filter (/=103) .   B.map (+5))
            ]
          ]
+
+
+    ----------------------------------------------------------------------------
+    -- Benchmarking "real world" programs
+    ----------------------------------------------------------------------------
+
+    , bgroup "real_world"
+      [ bli "letter_freq" ( VSB.readFile dict >>=
+                              deepEvaluate . sortBy (\x y -> snd y `compare` snd x)
+                                           . map (\x -> (w2c . VSBU.unsafeHead $ x, VSB8.length x))
+                                           . VSB8.group
+                                           . VSB8.sort
+                                           . VSB8.map toLower
+                                           . VSB8.filter isAlpha )
+                         ( B.readFile dict >>=
+                              deepEvaluate . sortBy (\x y -> snd y `compare` snd x)
+                                           . map (\x -> (w2c . BU.unsafeHead $ x, B8.length x))
+                                           . B8.group
+                                           . B8.sort
+                                           . B8.map toLower
+                                           . B8.filter isAlpha )
+      ]
     ]
 
 

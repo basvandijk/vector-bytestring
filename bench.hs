@@ -150,15 +150,15 @@ main = do
 
     , let f  = (+1)
           f8 = f . c2w
-          mySum = foldr (\_ z -> z) (0 :: Word8)
-      in boo "unpack_list_fuse" (nf (mySum . map f  .   VSB.unpack) vb)
-                                (nf (mySum . map f  .     B.unpack) b)
-                                (nf (mySum . map f8 .  VSB8.unpack) vb)
-                                (nf (mySum . map f8 .    B8.unpack) b)
-                                (nf (mySum . map f  .  VSBL.unpack) vbl)
-                                (nf (mySum . map f  .    BL.unpack) bl)
-                                (nf (mySum . map f8 . VSBL8.unpack) vbl)
-                                (nf (mySum . map f8 .   BL8.unpack) bl)
+          consume = foldr (\_ z -> z) (0 :: Word8)
+      in boo "unpack_list_fuse" (nf (consume . map f  .   VSB.unpack) vb)
+                                (nf (consume . map f  .     B.unpack) b)
+                                (nf (consume . map f8 .  VSB8.unpack) vb)
+                                (nf (consume . map f8 .    B8.unpack) b)
+                                (nf (consume . map f  .  VSBL.unpack) vbl)
+                                (nf (consume . map f  .    BL.unpack) bl)
+                                (nf (consume . map f8 . VSBL8.unpack) vbl)
+                                (nf (consume . map f8 .   BL8.unpack) bl)
 
 
     ----------------------------------------------------------------------------
@@ -252,8 +252,10 @@ main = do
 
     , let f  y x = x + y
           f8 y x = w2c $ f (c2w y) (c2w x)
-          n      = 100000 -- Increasing this causes stack overflows in:
-                          -- foldl1/strict/Word8/vector !!!
+          n      = 100000 -- TODO: Increasing this causes stack overflows in:
+                          -- foldl1/strict/Word8/vector !
+                          -- But why not in:
+                          -- foldl1/strict/Word8/bytestring ?
           n64    = fromIntegral n
           vb2    =  VSB.take n   vb
           b2     =    B.take n   b
@@ -290,8 +292,10 @@ main = do
 
     , let f  y x = x + y
           f8 y x = w2c $ f (c2w y) (c2w x)
-          n      = 100000 -- Increasing this causes stack overflows in:
-                          -- foldr1/strict/Char8/vector !!!
+          n      = 100000 -- TODO: Increasing this causes stack overflows in:
+                          -- foldr1/strict/Char8/vector !
+                          -- But why not in:
+                          -- foldr1/strict/Char8/bytestring ?
           n64    = fromIntegral n
           vb2    =  VSB.take n   vb
           b2     =    B.take n   b
@@ -352,7 +356,7 @@ main = do
           f8 x y = w2c $ f (c2w x) (c2w y)
           !z     = 1
           !z8    = w2c z
-          n      = 1000 -- If you increase this you get stack space overflows in:
+          n      = 1000 -- TODO: Increasing this causes stack space overflows in:
                         -- scanl/lazy/Word8/vector
                         -- scanl/lazy/Word8/bytestring
                         -- scanl/lazy/Char8/vector
@@ -434,33 +438,35 @@ main = do
           !s64 = fromIntegral s
       in BLOSL(splitAt, s, s64, vb, b, vbl, bl)
 
-    , let p  = (<= 255)         -- take everything
-          p8 = p . c2w -- take everything
+    , let p  = (<= 255) -- take everything
+          p8 = p . c2w
       in BOOA(takeWhile, p, p8, vb, b, vbl, bl)
-      -- takeWhile/strict/Char8/vector is suspiciously fast!
+      -- TODO: takeWhile/strict/Char8/vector is suspiciously fast!
 
-    , let p  = (<= 255)         -- drop everything
-          p8 = p . c2w -- drop everything
+    , let p  = (<= 255) -- drop everything
+          p8 = p . c2w
       in BOOA(dropWhile, p, p8, vb, b, vbl, bl)
-      -- dropWhile/strict/Char8/vector is suspiciously fast!
+      -- TODO: dropWhile/strict/Char8/vector is suspiciously fast!
 
-    , let p  = (<= 255)    -- span till end
-          p8 = p . c2w -- span till end
+    , let p  = (<= 255) -- span till end
+          p8 = p . c2w
       in BOOA(span, p, p8, vb, b, vbl, bl)
 
-      -- See if the RULE: "ByteString specialise span (x==)" fires:
-    , let p       = (==x)
-          p8      = p . c2w
-          n       = 500000
-          n64     = fromIntegral n
-          x       = 1
-          y       = 2
+      -- See if the RULE: "ByteString specialise span (==x)" fires:
+    , let !n      = 500000
+          !n64    = fromIntegral n
+          !x      = 1
+          !y      = 2
           vbSpan  =  VSB.replicate n   x `mappend`  VSB.replicate n   y
           bSpan   =    B.replicate n   x `mappend`    B.replicate n   y
           vblSpan = VSBL.replicate n64 x `mappend` VSBL.replicate n64 y
           blSpan  =   BL.replicate n64 x `mappend`   BL.replicate n64 y
+          p       = (==x)
+          p8      = p . c2w
+          {-# INLINE p  #-}
+          {-# INLINE p8 #-}
       in rnf (vbSpan, bSpan, vblSpan, blSpan) `seq`
-         boo "span_eq" (nf   (VSB.span p)  vbSpan)
+         boo "span_eq" (nf   (VSB.span p)  vbSpan) -- TODO: Does the RULE fire?
                        (nf     (B.span p)  bSpan)
                        (nf  (VSB8.span p8) vbSpan)
                        (nf    (B8.span p8) bSpan)
@@ -477,19 +483,21 @@ main = do
           p8 = p . c2w
       in BOOA(break, p, p8, vb, b, vbl, bl)
 
-      -- See if the RULE: "ByteString specialise break (x==)" fires:
-    , let p       = (==y)
-          p8      = p . c2w
-          n       = 500000
-          n64     = fromIntegral n
-          x       = 1
-          y       = 2
+      -- See if the RULE: "ByteString specialise break (==x)" fires:
+    , let !n      = 500000
+          !n64    = fromIntegral n
+          !x      = 1
+          !y      = 2
           vbSpan  =  VSB.replicate n   x `mappend`  VSB.replicate n   y
           bSpan   =    B.replicate n   x `mappend`    B.replicate n   y
           vblSpan = VSBL.replicate n64 x `mappend` VSBL.replicate n64 y
           blSpan  =   BL.replicate n64 x `mappend`   BL.replicate n64 y
+          p       = (==y)
+          p8      = p . c2w
+          {-# INLINE p  #-}
+          {-# INLINE p8 #-}
       in rnf (vbSpan, bSpan, vblSpan, blSpan) `seq`
-         boo "break_eq" (nf   (VSB.break p)  vbSpan)
+         boo "break_eq" (nf   (VSB.break p)  vbSpan) -- TODO: Does the RULE fire?
                         (nf     (B.break p)  bSpan)
                         (nf  (VSB8.break p8) vbSpan)
                         (nf    (B8.break p8) bSpan)
@@ -518,9 +526,28 @@ main = do
           !nlChar = '\n'
       in BOOA(split, nlWord, nlChar, vb, b, vbl, bl)
 
-    , let p  = p8 . w2c
-          p8 = (=='a')
+    , let !w = c2w 'k'
+          p  = (>=w)
+          p8 = p . c2w
       in BOOA(splitWith, p, p8, vb, b, vbl, bl)
+
+      -- See if the RULE: "ByteString specialise splitWith (==x)" fires:
+    , let !nlWord = c2w nlChar
+          !nlChar = '\n'
+          p       = (==nlWord)
+          p8      = p . c2w
+          {-# INLINE p  #-}
+          {-# INLINE p8 #-}
+      in boo "splitWith_eq"
+             (nf   (VSB.splitWith p)  vb) -- TODO: Should be as fast as split
+                                          --       but isn't !!!
+             (nf     (B.splitWith p)  b)
+             (nf  (VSB8.splitWith p8) vb)
+             (nf    (B8.splitWith p8) b)
+             (nf  (VSBL.splitWith p)  vbl)
+             (nf    (BL.splitWith p)  bl)
+             (nf (VSBL8.splitWith p8) vbl)
+             (nf   (BL8.splitWith p8) bl)
 
 
     ----------------------------------------------------------------------------
@@ -652,6 +679,7 @@ main = do
           !c8 = 'a'
       in BOOA(count, c, c8, vb, b, vbl, bl)
 
+
     ----------------------------------------------------------------------------
     -- * Zipping and unzipping ByteStrings
     ----------------------------------------------------------------------------
@@ -676,10 +704,11 @@ main = do
                        (nf (VSBL8.zipWith f8 vbl) vbl)
                        (nf   (BL8.zipWith f8 bl)  bl)
 
+      -- See if the RULE "ByteString specialise zipWith" fires:
     , let f  x y = x + y :: Word8
           f8 x y = f (c2w x) (c2w y)
       in boo "zipWith_Word8"
-                       (nf   (VSB.zipWith f  vb)  vb)
+                       (nf   (VSB.zipWith f  vb)  vb) -- TODO: Does the RULE fire?
                        (nf     (B.zipWith f  b)   b)
                        (nf  (VSB8.zipWith f8 vb)  vb)
                        (nf    (B8.zipWith f8 b)   b)
@@ -765,8 +794,8 @@ main = do
                          (  BL.writeFile devnull bl)
 
     , let doHGetContents f = withFile dict ReadMode $ \h -> f h >>= deepEvaluate
-      in blo "hGetContents" (doHGetContents VSB.hGetContents)
-                            (doHGetContents   B.hGetContents)
+      in blo "hGetContents" (doHGetContents  VSB.hGetContents)
+                            (doHGetContents    B.hGetContents)
                             (doHGetContents VSBL.hGetContents)
                             (doHGetContents   BL.hGetContents)
 

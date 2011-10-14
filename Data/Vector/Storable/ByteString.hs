@@ -284,7 +284,6 @@ import Data.Vector.Storable.ByteString.Internal
     , memcpy, memset, memchr, memcmp
     , c_strlen, c_count, c_intersperse
     )
-import Utils ( unsafeFromForeignPtr0, unsafeToForeignPtr0 )
 
 
 --------------------------------------------------------------------------------
@@ -403,7 +402,7 @@ intersperse c v
     | otherwise = unsafeCreate (2*l-1) $ \p' -> withForeignPtr fp $ \p ->
                     c_intersperse p' p (fromIntegral l) c
     where
-      (fp, l) = unsafeToForeignPtr0 v
+      (fp, l) = VS.unsafeToForeignPtr0 v
 {-# INLINE intersperse #-}
 
 -- | /O(n)/ The 'intercalate' function takes a 'ByteString' and a list of
@@ -429,8 +428,8 @@ intercalateWithByte c v1 v2 =
           poke (ptr `plusPtr` l1) c
           memcpy (ptr `plusPtr` (l1 + 1)) p2 (fromIntegral l2)
         where
-          (fp1, l1) = unsafeToForeignPtr0 v1
-          (fp2, l2) = unsafeToForeignPtr0 v2
+          (fp1, l1) = VS.unsafeToForeignPtr0 v1
+          (fp2, l2) = VS.unsafeToForeignPtr0 v2
 {-# INLINE intercalateWithByte #-}
 
 -- | The 'transpose' function transposes the rows and columns of its
@@ -569,7 +568,7 @@ mapAccumL f acc v = unsafeInlineIO $ withForeignPtr fp $ \p -> do
     fp' <- mallocByteString l
     withForeignPtr fp' $ \p' ->
       let go !a !m
-            | m >= l = return (a, unsafeFromForeignPtr0 fp' l)
+            | m >= l = return (a, VS.unsafeFromForeignPtr0 fp' l)
             | otherwise = do
                 x <- peekByteOff p m
                 let (a', y) = f a x
@@ -577,7 +576,7 @@ mapAccumL f acc v = unsafeInlineIO $ withForeignPtr fp $ \p -> do
                 go a' (m+1)
       in go acc 0
           where
-            (fp, l) = unsafeToForeignPtr0 v
+            (fp, l) = VS.unsafeToForeignPtr0 v
 {-# INLINE mapAccumL #-}
 
 -- | The 'mapAccumR' function behaves like a combination of 'map' and
@@ -590,7 +589,7 @@ mapAccumR f acc v = unsafeInlineIO $ withForeignPtr fp $ \p -> do
     fp' <- mallocByteString l
     withForeignPtr fp' $ \p' ->
       let go !a !m
-            | m < 0     = return (a, unsafeFromForeignPtr0 fp' l)
+            | m < 0     = return (a, VS.unsafeFromForeignPtr0 fp' l)
             | otherwise = do
                 x <- peekByteOff p m
                 let (a', y) = f a x
@@ -598,7 +597,7 @@ mapAccumR f acc v = unsafeInlineIO $ withForeignPtr fp $ \p -> do
                 go a' (m-1)
       in go acc (l-1)
           where
-            (fp, l) = unsafeToForeignPtr0 v
+            (fp, l) = VS.unsafeToForeignPtr0 v
 {-# INLINE mapAccumR #-}
 
 --------------------------------------------------------------------------------
@@ -726,7 +725,7 @@ spanByte c v = unsafeInlineIO $ withForeignPtr fp $ \p ->
                   else go (i+1)
   in go 0
       where
-        (fp, l) = unsafeToForeignPtr0 v
+        (fp, l) = VS.unsafeToForeignPtr0 v
 {-# INLINE spanByte #-}
 
 -- | 'spanEnd' behaves like 'span' but from the end of the 'ByteString'.
@@ -845,7 +844,7 @@ split :: Word8 -> ByteString -> [ByteString]
 split w v | l == 0    = []
           | otherwise = go 0
     where
-      (fp, l) = unsafeToForeignPtr0 v
+      (fp, l) = VS.unsafeToForeignPtr0 v
 
       withFP = unsafeInlineIO . withForeignPtr fp
 
@@ -873,7 +872,7 @@ splitWith pred v
     | l == 0    = []
     | otherwise = splitWith0 0 l
     where
-      (fp, l) = unsafeToForeignPtr0 v
+      (fp, l) = VS.unsafeToForeignPtr0 v
 
       splitWith0 !off !len = unsafeInlineIO $ withForeignPtr fp $ \p ->
         let vec = VS.unsafeFromForeignPtr fp off
@@ -911,8 +910,8 @@ isPrefixOf v1 v2
                         i <- memcmp p1 p2 (fromIntegral l1)
                         return $! i == 0
     where
-      (fp1, l1) = unsafeToForeignPtr0 v1
-      (fp2, l2) = unsafeToForeignPtr0 v2
+      (fp1, l1) = VS.unsafeToForeignPtr0 v1
+      (fp2, l2) = VS.unsafeToForeignPtr0 v2
 {-# INLINE isPrefixOf #-}
 
 -- | /O(n)/ The 'isSuffixOf' function takes two ByteStrings and returns 'True'
@@ -934,8 +933,8 @@ isSuffixOf v1 v2
         i <- memcmp p1 (p2 `plusPtr` (l2 - l1)) (fromIntegral l1)
         return $! i == 0
     where
-      (fp1, l1) = unsafeToForeignPtr0 v1
-      (fp2, l2) = unsafeToForeignPtr0 v2
+      (fp1, l1) = VS.unsafeToForeignPtr0 v1
+      (fp2, l2) = VS.unsafeToForeignPtr0 v2
 {-# INLINE isSuffixOf #-}
 
 -- | Check whether one string is a substring of another. @isInfixOf
@@ -1108,7 +1107,7 @@ elemIndexEnd x v = unsafeInlineIO $ withForeignPtr fp $ \p ->
                     else go (i-1)
     in go (l - 1)
         where
-          (fp, l) = unsafeToForeignPtr0 v
+          (fp, l) = VS.unsafeToForeignPtr0 v
 {-# INLINE elemIndexEnd #-}
 
 -- | The 'findIndex' function takes a predicate and a 'ByteString' and
@@ -1133,7 +1132,7 @@ count :: Word8 -> ByteString -> Int
 count x v = unsafeInlineIO $ withForeignPtr fp $ \p ->
     fmap fromIntegral $ c_count p (fromIntegral l) x
         where
-          (fp, l) = unsafeToForeignPtr0 v
+          (fp, l) = VS.unsafeToForeignPtr0 v
 {-# INLINE count #-}
 
 
@@ -1191,8 +1190,8 @@ zipWith' f v1 v2 =
     where
       len = min l1 l2
 
-      (fp1, l1) = unsafeToForeignPtr0 v1
-      (fp2, l2) = unsafeToForeignPtr0 v2
+      (fp1, l1) = VS.unsafeToForeignPtr0 v1
+      (fp2, l2) = VS.unsafeToForeignPtr0 v2
 {-# INLINE zipWith' #-}
 
 -- | /O(n)/ 'unzip' transforms a list of pairs of bytes into a pair of
@@ -1235,7 +1234,7 @@ sort v = unsafeCreate l $ \p' -> allocaArray 256 $ \counts -> do
           go (i + 1) (ptr `plusPtr` fromIntegral n)
     go 0 p'
   where
-    (fp, l) = unsafeToForeignPtr0 v
+    (fp, l) = VS.unsafeToForeignPtr0 v
 {-# INLINE sort #-}
 
 
@@ -1257,7 +1256,7 @@ copy v = unsafeCreate l $ \p' ->
             withForeignPtr fp $ \p ->
                 memcpy p' p (fromIntegral l)
     where
-      (fp, l) = unsafeToForeignPtr0 v
+      (fp, l) = VS.unsafeToForeignPtr0 v
 {-# INLINE copy #-}
 
 --------------------------------------------------------------------------------
@@ -1298,7 +1297,7 @@ useAsCString v action = do
       pokeByteOff buf l (0::Word8)
       action (castPtr buf)
     where
-      (fp, l) = unsafeToForeignPtr0 v
+      (fp, l) = VS.unsafeToForeignPtr0 v
 {-# INLINE useAsCString #-}
 
 -- | /O(n) construction/ Use a @ByteString@ with a function requiring a @CStringLen@.
@@ -1429,7 +1428,7 @@ hPut h v
     | l == 0    = return ()
     | otherwise = withForeignPtr fp $ \p -> hPutBuf h p l
     where
-      (fp, l) = unsafeToForeignPtr0 v
+      (fp, l) = VS.unsafeToForeignPtr0 v
 
 -- | Similar to 'hPut' except that it will never block. Instead it returns
 -- any tail that did not get written. This tail may be 'empty' in the case that
@@ -1444,7 +1443,7 @@ hPutNonBlocking h v = do
   bytesWritten <- withForeignPtr fp $ \p-> hPutBufNonBlocking h p l
   return $! VS.drop bytesWritten v
       where
-        (fp, l) = unsafeToForeignPtr0 v
+        (fp, l) = VS.unsafeToForeignPtr0 v
 
 -- | A synonym for @hPut@, for compatibility
 hPutStr :: Handle -> ByteString -> IO ()
@@ -1529,7 +1528,7 @@ hGetContents h = always (hClose h) $ do -- strict, so hClose
     if i < start_size
         then do p' <- reallocBytes p i
                 fp <- newForeignPtr finalizerFree p'
-                return $! unsafeFromForeignPtr0 fp i
+                return $! VS.unsafeFromForeignPtr0 fp i
         else f p start_size
     where
         always = flip finally
@@ -1541,7 +1540,7 @@ hGetContents h = always (hClose h) $ do -- strict, so hClose
                 then do let i' = s + i
                         p'' <- reallocBytes p' i'
                         fp  <- newForeignPtr finalizerFree p''
-                        return $! unsafeFromForeignPtr0 fp i'
+                        return $! VS.unsafeFromForeignPtr0 fp i'
                 else f p' s'
 
 
@@ -1562,7 +1561,7 @@ findIndexOrEnd k v = unsafeInlineIO $  withForeignPtr fp $ \p ->
                     else go (ptr `plusPtr` 1)
   in go p
     where
-      (fp, l) = unsafeToForeignPtr0 v
+      (fp, l) = VS.unsafeToForeignPtr0 v
 {-# INLINE findIndexOrEnd #-}
 
 -- | Find from the end of the string using predicate

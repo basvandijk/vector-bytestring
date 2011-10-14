@@ -107,8 +107,9 @@ import Control.Monad.Primitive ( unsafeInlineIO )
 -- from vector:
 import qualified Data.Vector.Storable as VS
 
--- from vector-bytestring (this package):
-import Utils ( unsafeFromForeignPtr0 )
+-- TODO: Temporary:
+-- from deepseq:
+import Control.DeepSeq ( NFData )
 
 
 --------------------------------------------------------------------------------
@@ -119,6 +120,8 @@ import Utils ( unsafeFromForeignPtr0 )
 -- efficient operations.  A 'ByteString' contains 8-bit characters only.
 type ByteString = VS.Vector Word8
 
+-- TODO: Temporary:
+instance NFData (VS.Vector a)
 
 {-
 -- TODO: Probably not a good idea to add these orphaned instances:
@@ -166,7 +169,7 @@ create l f = do
   fp <- mallocByteString l
   withForeignPtr fp $ \p -> do
     f p
-    return $! unsafeFromForeignPtr0 fp l
+    return $! VS.unsafeFromForeignPtr0 fp l
 {-# INLINE create #-}
 
 -- | A way of creating ByteStrings outside the IO monad. The @Int@
@@ -195,7 +198,7 @@ createAndTrim l f = do
   withForeignPtr fp $ \p -> do
     l' <- f p
     if assert (l' <= l) $ l' >= l
-      then return $! unsafeFromForeignPtr0 fp l
+      then return $! VS.unsafeFromForeignPtr0 fp l
       else create l' $ \p' -> memcpy p' p (fromIntegral l')
 {-# INLINE createAndTrim #-}
 
@@ -205,7 +208,7 @@ createAndTrim' l f = do
   withForeignPtr fp $ \p -> do
     (off, l', res) <- f p
     if assert (l' <= l) $ l' >= l
-      then return $! (unsafeFromForeignPtr0 fp l, res)
+      then return $! (VS.unsafeFromForeignPtr0 fp l, res)
       else do v <- create l' $ \p' ->
                      memcpy p' (p `plusPtr` off) (fromIntegral l')
               return $! (v, res)

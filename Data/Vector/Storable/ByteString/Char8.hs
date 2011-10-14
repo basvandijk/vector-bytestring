@@ -265,8 +265,6 @@ import Data.Vector.Storable.ByteString.Unsafe   ( unsafePackAddress )
 
 import Data.Vector.Storable.ByteString ( ByteString )
 
-import Utils ( unsafeToForeignPtr0, unsafeFromForeignPtr0 )
-
 
 ------------------------------------------------------------------------
 -- * Introducing and eliminating ByteStrings
@@ -629,7 +627,7 @@ dropSpace v = unsafeInlineIO $ withForeignPtr fp $ \p ->
                   else return $ VS.unsafeFromForeignPtr fp i (l-i)
     in go 0
         where
-          (fp, l) = unsafeToForeignPtr0 v
+          (fp, l) = VS.unsafeToForeignPtr0 v
 {-# INLINE dropSpace #-}
 
 -- | 'span' @p xs@ breaks the ByteString into two segments. It is
@@ -701,8 +699,8 @@ breakSpace v = unsafeInlineIO $ withForeignPtr fp $ \p ->
                        else (vec i, VS.unsafeFromForeignPtr fp i (l-i))
     in go 0
         where
-          (fp, l) = unsafeToForeignPtr0 v
-          vec = unsafeFromForeignPtr0 fp
+          (fp, l) = VS.unsafeToForeignPtr0 v
+          vec = VS.unsafeFromForeignPtr0 fp
 {-# INLINE breakSpace #-}
 
 -- | 'breakEnd' behaves like 'break' but from the end of the 'ByteString'

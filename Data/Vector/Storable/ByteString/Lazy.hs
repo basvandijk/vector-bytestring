@@ -211,8 +211,6 @@ import qualified Data.Vector.Storable.ByteString.Internal as S
 import qualified Data.Vector.Storable.ByteString.Unsafe as S
 import Data.Vector.Storable.ByteString.Lazy.Internal
 
-import Utils ( unsafeToForeignPtr0 )
-
 import Data.Monoid              (Monoid(..))
 
 import Data.Word                (Word8)
@@ -226,6 +224,10 @@ import Control.Exception        (bracket)
 import Foreign.ForeignPtr       (withForeignPtr)
 import Foreign.Ptr
 import Foreign.Storable
+
+-- from vector:
+import qualified Data.Vector.Storable as VS
+    ( unsafeToForeignPtr0, unsafeToForeignPtr0 )
 
 
 -- -----------------------------------------------------------------------------
@@ -443,7 +445,7 @@ intersperse w (Chunk c cs) = Chunk (S.intersperse w c)
             poke p' w
             S.c_intersperse (p' `plusPtr` 1) p (fromIntegral l) w
               where
-                 (fp, l) = unsafeToForeignPtr0 v
+                 (fp, l) = VS.unsafeToForeignPtr0 v
 
 -- | The 'transpose' function transposes the rows and columns of its
 -- 'ByteString' argument.
@@ -1340,7 +1342,7 @@ revChunks cs = L.foldl' (flip chunk) Empty cs
 findIndexOrEnd :: (Word8 -> Bool) -> P.ByteString -> Int
 findIndexOrEnd k v = S.inlinePerformIO $ withForeignPtr fp $ \f -> go f 0
   where
-    (fp, l) = unsafeToForeignPtr0 v
+    (fp, l) = VS.unsafeToForeignPtr0 v
 
     go !ptr !n | n >= l    = return l
                | otherwise = do w <- peek ptr

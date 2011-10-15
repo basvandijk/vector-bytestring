@@ -226,7 +226,7 @@ import Data.Function         ( (.), flip )
 import Data.Functor          ( fmap )
 import Data.IORef            ( readIORef, writeIORef )
 import Data.Maybe            ( Maybe(Nothing, Just), isJust, listToMaybe )
-import Data.Ord              ( min, (<), (>), (<=), (>=) )
+import Data.Ord              ( min, (<), (>), (>=) )
 import Data.Tuple            ( fst, snd )
 import Data.Word             ( Word8 )
 import Foreign.C.String      ( CString, CStringLen )
@@ -608,14 +608,8 @@ mapAccumR f acc v = unsafeInlineIO $ withForeignPtr fp $ \p -> do
 --
 -- > replicate n x = unfoldr n (\u -> Just (u,u)) x
 --
--- This implemenation uses @memset(3)@
-
--- TODO: Should I use VS.replicate here?
 replicate :: Int -> Word8 -> ByteString
-replicate n x
-    | n <= 0    = VS.empty
-    | otherwise = unsafeCreate n $ \p ->
-                    void $ memset p x (fromIntegral n)
+replicate = VS.replicate
 {-# INLINE replicate #-}
 
 -- | /O(n)/, where /n/ is the length of the result.  The 'unfoldr'

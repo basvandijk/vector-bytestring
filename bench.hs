@@ -81,6 +81,7 @@ import qualified Data.ByteString.Lazy.Internal               as BLI
 #define BOOA(name, a, a8, vb, b, vbl, bl) \
         BOOA8(name, a, vb,   a, b,   a8, vb,   a8, b \
                   , a, vbl,  a, bl,  a8, vbl,  a8, bl)
+
 #define BOOB(name, a, a8, vb, b, vbl, bl) \
         BOOA8(name, vb,  a,  b,  a,  vb,  a8,  b,  a8 \
                   , vbl, a,  bl, a,  vbl, a8,  bl, a8)
@@ -207,6 +208,17 @@ main = do
           blsN   = List.replicate n bl
       in rnf (vbsN, bsN, vblsN, blsN) `seq`
          BLOBIN(intercalate,   vb, vbsN,   b, bsN,   vbl, vblsN,   bl, blsN)
+
+      -- TODO: See if the RULE
+      -- "ByteString specialise intercalate c -> intercalateByte" fires:
+    , let n      = 100
+          vbsN   = List.replicate n vb
+          bsN    = List.replicate n b
+          !z     = 0
+      in rnf (vbsN, bsN) `seq`
+         bli "intercalate_singleton"
+                 (nf (VSB.intercalate (VSB.singleton z)) vbsN)
+                 (nf   (B.intercalate (  B.singleton z))  bsN)
 
     , let m      = 5
           vbsM   = List.replicate m vb

@@ -25,7 +25,7 @@ import Foreign.C.String  ( withCString, withCStringLen )
 import qualified Data.List as List ( replicate )
 
 -- from deepseq:
-import Control.DeepSeq ( NFData, rnf )
+import Control.DeepSeq ( NFData, rnf, deepseq )
 
 -- from criterion:
 import Criterion.Main ( Benchmarkable, Benchmark, defaultMain, bgroup, bench, nf )
@@ -55,28 +55,28 @@ import qualified Data.ByteString.Lazy.Internal               as BLI
 --------------------------------------------------------------------------------
 
 #define BOO8(name, vb, b, vb8, b8, vbl, bl, vbl8, bl8) \
-        boo "name" (nf   VSB.name vb)   \
-                   (nf     B.name b)    \
-                   (nf  VSB8.name vb8)  \
-                   (nf    B8.name b8)   \
-                   (nf  VSBL.name vbl)  \
-                   (nf    BL.name bl)   \
-                   (nf VSBL8.name vbl8) \
-                   (nf   BL8.name bl8)
+        (boo "name" (nf   VSB.name vb)   \
+                    (nf     B.name b)    \
+                    (nf  VSB8.name vb8)  \
+                    (nf    B8.name b8)   \
+                    (nf  VSBL.name vbl)  \
+                    (nf    BL.name bl)   \
+                    (nf VSBL8.name vbl8) \
+                    (nf   BL8.name bl8))
 
 #define BOO4(name, vb, b, vbl, bl) BOO8(name, vb, b, vb, b, vbl, bl, vbl, bl)
 #define BOO2(name, a, a8)          BOO8(name, a, a, a8, a8, a, a, a8, a8)
 
 #define BOOA8(name,  vb,  vb_,   b,  b_,   vb8,  vb8_,   b8,  b8_   \
                   ,  vbl, vbl_,  bl, bl_,  vbl8, vbl8_,  bl8, bl8_) \
-        boo "name" (nf   (VSB.name vb)   vb_)   \
-                   (nf     (B.name b)    b_)    \
-                   (nf  (VSB8.name vb8)  vb8_)  \
-                   (nf    (B8.name b8)   b8_)   \
-                   (nf  (VSBL.name vbl)  vbl_)  \
-                   (nf    (BL.name bl)   bl_)   \
-                   (nf (VSBL8.name vbl8) vbl8_) \
-                   (nf   (BL8.name bl8)  bl8_)  \
+        (boo "name" (nf   (VSB.name vb)   vb_)   \
+                    (nf     (B.name b)    b_)    \
+                    (nf  (VSB8.name vb8)  vb8_)  \
+                    (nf    (B8.name b8)   b8_)   \
+                    (nf  (VSBL.name vbl)  vbl_)  \
+                    (nf    (BL.name bl)   bl_)   \
+                    (nf (VSBL8.name vbl8) vbl8_) \
+                    (nf   (BL8.name bl8)  bl8_)) \
 
 #define BOOA(name, a, a8, vb, b, vbl, bl) \
         BOOA8(name, a, vb,   a, b,   a8, vb,   a8, b \
@@ -87,10 +87,10 @@ import qualified Data.ByteString.Lazy.Internal               as BLI
                   , vbl, a,  bl, a,  vbl, a8,  bl, a8)
 
 #define BLOO(name,  vb, vb_,  b, b_,  vbl, vbl_,  bl, bl_) \
-        blo "name" (nf   (VSB.name vb)  vb_)  \
-                   (nf     (B.name b)   b_)   \
-                   (nf  (VSBL.name vbl) vbl_) \
-                   (nf    (BL.name bl)  bl_)  \
+        (blo "name" (nf   (VSB.name vb)  vb_)  \
+                    (nf     (B.name b)   b_)   \
+                    (nf  (VSBL.name vbl) vbl_) \
+                    (nf    (BL.name bl)  bl_)) \
 
 #define BLOSL(name, s, l, vb, b, vbl, bl) \
         BLOO(name,  s, vb,  s, b,  l, vbl,  l, bl)
@@ -98,17 +98,17 @@ import qualified Data.ByteString.Lazy.Internal               as BLI
 #define BLOBIN(name,   vb1, vb2,   b1, b2,   vbl1, vbl2,   bl1, bl2) \
         BLOO(name,  vb1, vb2,  b1, b2,  vbl1, vbl2,  bl1, bl2)
 
-#define BLAA(name, a, a8, vb, b)          \
-        bla "name" (nf  (VSB.name a)  vb) \
-                   (nf    (B.name a)  b)  \
-                   (nf (VSB8.name a8) vb) \
-                   (nf   (B8.name a8) b)
+#define BLAA(name, a, a8, vb, b)           \
+        (bla "name" (nf  (VSB.name a)  vb) \
+                    (nf    (B.name a)  b)  \
+                    (nf (VSB8.name a8) vb) \
+                    (nf   (B8.name a8) b))
 
-#define BLO(name,   vb, b, vbl, bl)   \
-        blo "name" (nf  VSB.name vb)  \
-                   (nf    B.name b)   \
-                   (nf VSBL.name vbl) \
-                   (nf   BL.name bl)  \
+#define BLO(name,   vb, b, vbl, bl)    \
+        (blo "name" (nf  VSB.name vb)  \
+                    (nf    B.name b)   \
+                    (nf VSBL.name vbl) \
+                    (nf   BL.name bl))
 
 
 --------------------------------------------------------------------------------
@@ -127,7 +127,7 @@ main = do
   vbl <-VSBL.readFile dict
   bl  <-  BL.readFile dict
 
-  rnf (vb, b, vbl, bl) `seq`
+  deepseq (vb, b, vbl, bl) $
     defaultMain $
     [
     ----------------------------------------------------------------------------
@@ -145,7 +145,7 @@ main = do
 
     , let xs =  B.unpack b
           cs = B8.unpack b
-      in rnf (xs, cs) `seq`
+      in deepseq (xs, cs)
          BOO2(pack, xs, cs)
 
     , BOO4(unpack, vb, b, vbl, bl)
@@ -206,7 +206,7 @@ main = do
           bsN    = List.replicate n b
           vblsN  = List.replicate n vbl
           blsN   = List.replicate n bl
-      in rnf (vbsN, bsN, vblsN, blsN) `seq`
+      in deepseq (vbsN, bsN, vblsN, blsN)
          BLOBIN(intercalate,   vb, vbsN,   b, bsN,   vbl, vblsN,   bl, blsN)
 
       -- TODO: See if the RULE
@@ -215,7 +215,7 @@ main = do
           vbsN   = List.replicate n vb
           bsN    = List.replicate n b
           !z     = 0
-      in rnf (vbsN, bsN) `seq`
+      in deepseq (vbsN, bsN)
          bli "intercalate_singleton"
                  (nf (VSB.intercalate (VSB.singleton z)) vbsN)
                  (nf   (B.intercalate (  B.singleton z))  bsN)
@@ -225,7 +225,7 @@ main = do
           bsM    = List.replicate m b
           vblsM  = List.replicate m vbl
           blsM   = List.replicate m bl
-      in rnf (vbsM, bsM, vblsM, blsM) `seq`
+      in deepseq (vbsM, bsM, vblsM, blsM)
          BLO(transpose, vbsM, bsM, vblsM, blsM)
 
 
@@ -274,7 +274,7 @@ main = do
           b2     =    B.take n   b
           vbl2   = VSBL.take n64 vbl
           bl2    =   BL.take n64 bl
-      in rnf (vb2, b2, vbl2, bl2) `seq`
+      in deepseq (vb2, b2, vbl2, bl2)
          BOOA(foldl1, f, f8, vb2, b2, vbl2, bl2)
 
     , let f  y x = x + y
@@ -314,7 +314,7 @@ main = do
           b2     =    B.take n   b
           vbl2   = VSBL.take n64 vbl
           bl2    =   BL.take n64 bl
-      in rnf (vb2, b2, vbl2, bl2) `seq`
+      in deepseq (vb2, b2, vbl2, bl2)
          BOOA(foldr1, f, f8, vb2, b2, vbl2, bl2)
 
     , let f  y x = x + y
@@ -332,7 +332,7 @@ main = do
           bsM    = List.replicate m b
           vblsM  = List.replicate m vbl
           blsM   = List.replicate m bl
-      in rnf (vbsM, bsM, vblsM, blsM) `seq`
+      in deepseq (vbsM, bsM, vblsM, blsM)
          BLO(concat, vbsM, bsM, vblsM, blsM)
 
     , let !r   = 5
@@ -379,7 +379,7 @@ main = do
           b2     =    B.take n   b
           vbl2   = VSBL.take n64 vbl
           bl2    =   BL.take n64 bl
-      in rnf (vb2, b2, vbl2, bl2) `seq`
+      in deepseq (vb2, b2, vbl2, bl2)
          BOOA(scanl, f z, f8 z8, vb2, b2, vbl2, bl2)
 
     , let f  x y = x + y
@@ -478,7 +478,7 @@ main = do
           p8      = p . c2w
           {-# INLINE p  #-}
           {-# INLINE p8 #-}
-      in rnf (vbSpan, bSpan, vblSpan, blSpan) `seq`
+      in deepseq (vbSpan, bSpan, vblSpan, blSpan)
          boo "span_eq" (nf   (VSB.span p)  vbSpan) -- TODO: Does the RULE fire?
                        (nf     (B.span p)  bSpan)
                        (nf  (VSB8.span p8) vbSpan)
@@ -509,7 +509,7 @@ main = do
           p8      = p . c2w
           {-# INLINE p  #-}
           {-# INLINE p8 #-}
-      in rnf (vbSpan, bSpan, vblSpan, blSpan) `seq`
+      in deepseq (vbSpan, bSpan, vblSpan, blSpan)
          boo "break_eq" (nf   (VSB.break p)  vbSpan) -- TODO: Does the RULE fire?
                         (nf     (B.break p)  bSpan)
                         (nf  (VSB8.break p8) vbSpan)
@@ -573,13 +573,13 @@ main = do
           bp   =    B.take p   b
           vblp = VSBL.take p64 vbl
           blp  =   BL.take p64 bl
-      in rnf (vbp, bp, vblp, blp) `seq`
+      in deepseq (vbp, bp, vblp, blp)
          BLOBIN(isPrefixOf,   vbp, vb,   bp, b,   vblp, vbl,   blp, bl)
 
     , let p    = VSB.length vb - 1
           vbp  = VSB.drop p vb
           bp   =   B.drop p b
-      in rnf (vbp, bp) `seq`
+      in deepseq (vbp, bp)
          bli "isSuffixOf" (nf (VSB.isSuffixOf vbp) vb)
                           (nf   (B.isSuffixOf bp)  b)
 
@@ -589,7 +589,7 @@ main = do
           o   = 2 * p
           vbp = VSB.take o (VSB.drop n vb)
           bp  =   B.take o   (B.drop n b)
-      in rnf (vbp, bp) `seq`
+      in deepseq (vbp, bp)
          bli "isInfixOf" (nf (VSB.isInfixOf vbp) vb)
                          (nf   (B.isInfixOf bp)  b)
 
@@ -602,7 +602,7 @@ main = do
           o   = 2 * p
           vbp = VSB.take o (VSB.drop n vb)
           bp  =   B.take o   (B.drop n b)
-      in rnf (vbp, bp) `seq`
+      in deepseq (vbp, bp)
          bli "breakSubstring" (nf (VSB.breakSubstring vbp) vb)
                               (nf   (B.breakSubstring bp)  b)
 
@@ -612,14 +612,14 @@ main = do
           o   = 2 * p
           vbp = VSB.take o (VSB.drop n vb)
           bp  =   B.take o   (B.drop n b)
-      in rnf (vbp, bp) `seq`
+      in deepseq (vbp, bp)
          bli "findSubstring" (nf (VSB.findSubstring vbp) vb)
                              (nf   (B.findSubstring bp)  b)
 
     , let s   = "the"
           vbp = VSB8.pack s
           bp  =   B8.pack s
-      in rnf (vbp, bp) `seq`
+      in deepseq (vbp, bp)
          bli "findSubstrings" (nf (VSB.findSubstrings vbp) vb)
                               (nf   (B.findSubstrings bp)  b)
 
@@ -732,7 +732,7 @@ main = do
 
     , let xs  =  VSB.zip vb vb
           xs8 = VSB8.zip vb vb
-      in rnf (xs, xs8) `seq`
+      in deepseq (xs, xs8)
          bgroup "unzip"
          [ bgroup "strict" $ foo  (nf   VSB.unzip xs)
                                   (nf     B.unzip xs)
@@ -766,7 +766,7 @@ main = do
           doPackCString packCString =
               withCString str $ \cStr ->
                   packCString cStr >>= deepEvaluate
-      in rnf str `seq`
+      in deepseq str
          bli "packCString" (doPackCString VSB.packCString)
                            (doPackCString   B.packCString)
 
@@ -774,7 +774,7 @@ main = do
           doPackCStringLen packCStringLen =
               withCStringLen str $ \cStrLen ->
                   packCStringLen cStrLen >>= deepEvaluate
-      in rnf str `seq`
+      in deepseq str
          bli "packCStringLen" (doPackCStringLen VSB.packCStringLen)
                               (doPackCStringLen   B.packCStringLen)
 

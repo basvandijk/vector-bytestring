@@ -145,7 +145,7 @@ main = do
 
     , let xs =  B.unpack b
           cs = B8.unpack b
-      in deepseq (xs, cs)
+      in (xs, cs) `deepseq`
          BOO2(pack, xs, cs)
 
     , BOO4(unpack, vb, b, vbl, bl)
@@ -206,7 +206,7 @@ main = do
           bsN    = List.replicate n b
           vblsN  = List.replicate n vbl
           blsN   = List.replicate n bl
-      in deepseq (vbsN, bsN, vblsN, blsN)
+      in (vbsN, bsN, vblsN, blsN) `deepseq`
          BLOBIN(intercalate,   vb, vbsN,   b, bsN,   vbl, vblsN,   bl, blsN)
 
       -- TODO: See if the RULE
@@ -215,7 +215,7 @@ main = do
           vbsN   = List.replicate n vb
           bsN    = List.replicate n b
           !z     = 0
-      in deepseq (vbsN, bsN)
+      in (vbsN, bsN) `deepseq`
          bli "intercalate_singleton"
                  (nf (VSB.intercalate (VSB.singleton z)) vbsN)
                  (nf   (B.intercalate (  B.singleton z))  bsN)
@@ -225,7 +225,7 @@ main = do
           bsM    = List.replicate m b
           vblsM  = List.replicate m vbl
           blsM   = List.replicate m bl
-      in deepseq (vbsM, bsM, vblsM, blsM)
+      in (vbsM, bsM, vblsM, blsM) `deepseq`
          BLO(transpose, vbsM, bsM, vblsM, blsM)
 
 
@@ -274,7 +274,7 @@ main = do
           b2     =    B.take n   b
           vbl2   = VSBL.take n64 vbl
           bl2    =   BL.take n64 bl
-      in deepseq (vb2, b2, vbl2, bl2)
+      in (vb2, b2, vbl2, bl2) `deepseq`
          BOOA(foldl1, f, f8, vb2, b2, vbl2, bl2)
 
     , let f  y x = x + y
@@ -314,7 +314,7 @@ main = do
           b2     =    B.take n   b
           vbl2   = VSBL.take n64 vbl
           bl2    =   BL.take n64 bl
-      in deepseq (vb2, b2, vbl2, bl2)
+      in (vb2, b2, vbl2, bl2) `deepseq`
          BOOA(foldr1, f, f8, vb2, b2, vbl2, bl2)
 
     , let f  y x = x + y
@@ -332,7 +332,7 @@ main = do
           bsM    = List.replicate m b
           vblsM  = List.replicate m vbl
           blsM   = List.replicate m bl
-      in deepseq (vbsM, bsM, vblsM, blsM)
+      in (vbsM, bsM, vblsM, blsM) `deepseq`
          BLO(concat, vbsM, bsM, vblsM, blsM)
 
     , let !r   = 5
@@ -379,7 +379,7 @@ main = do
           b2     =    B.take n   b
           vbl2   = VSBL.take n64 vbl
           bl2    =   BL.take n64 bl
-      in deepseq (vb2, b2, vbl2, bl2)
+      in (vb2, b2, vbl2, bl2) `deepseq`
          BOOA(scanl, f z, f8 z8, vb2, b2, vbl2, bl2)
 
     , let f  x y = x + y
@@ -478,7 +478,7 @@ main = do
           p8      = p . c2w
           {-# INLINE p  #-}
           {-# INLINE p8 #-}
-      in deepseq (vbSpan, bSpan, vblSpan, blSpan)
+      in (vbSpan, bSpan, vblSpan, blSpan) `deepseq`
          boo "span_eq" (nf   (VSB.span p)  vbSpan) -- TODO: Does the RULE fire?
                        (nf     (B.span p)  bSpan)
                        (nf  (VSB8.span p8) vbSpan)
@@ -509,7 +509,7 @@ main = do
           p8      = p . c2w
           {-# INLINE p  #-}
           {-# INLINE p8 #-}
-      in deepseq (vbSpan, bSpan, vblSpan, blSpan)
+      in (vbSpan, bSpan, vblSpan, blSpan) `deepseq`
          boo "break_eq" (nf   (VSB.break p)  vbSpan) -- TODO: Does the RULE fire?
                         (nf     (B.break p)  bSpan)
                         (nf  (VSB8.break p8) vbSpan)
@@ -573,13 +573,13 @@ main = do
           bp   =    B.take p   b
           vblp = VSBL.take p64 vbl
           blp  =   BL.take p64 bl
-      in deepseq (vbp, bp, vblp, blp)
+      in (vbp, bp, vblp, blp) `deepseq`
          BLOBIN(isPrefixOf,   vbp, vb,   bp, b,   vblp, vbl,   blp, bl)
 
     , let p    = VSB.length vb - 1
           vbp  = VSB.drop p vb
           bp   =   B.drop p b
-      in deepseq (vbp, bp)
+      in (vbp, bp) `deepseq`
          bli "isSuffixOf" (nf (VSB.isSuffixOf vbp) vb)
                           (nf   (B.isSuffixOf bp)  b)
 
@@ -589,7 +589,7 @@ main = do
           o   = 2 * p
           vbp = VSB.take o (VSB.drop n vb)
           bp  =   B.take o   (B.drop n b)
-      in deepseq (vbp, bp)
+      in (vbp, bp) `deepseq`
          bli "isInfixOf" (nf (VSB.isInfixOf vbp) vb)
                          (nf   (B.isInfixOf bp)  b)
 
@@ -602,7 +602,7 @@ main = do
           o   = 2 * p
           vbp = VSB.take o (VSB.drop n vb)
           bp  =   B.take o   (B.drop n b)
-      in deepseq (vbp, bp)
+      in (vbp, bp) `deepseq`
          bli "breakSubstring" (nf (VSB.breakSubstring vbp) vb)
                               (nf   (B.breakSubstring bp)  b)
 
@@ -612,14 +612,14 @@ main = do
           o   = 2 * p
           vbp = VSB.take o (VSB.drop n vb)
           bp  =   B.take o   (B.drop n b)
-      in deepseq (vbp, bp)
+      in (vbp, bp) `deepseq`
          bli "findSubstring" (nf (VSB.findSubstring vbp) vb)
                              (nf   (B.findSubstring bp)  b)
 
     , let s   = "the"
           vbp = VSB8.pack s
           bp  =   B8.pack s
-      in deepseq (vbp, bp)
+      in (vbp, bp) `deepseq`
          bli "findSubstrings" (nf (VSB.findSubstrings vbp) vb)
                               (nf   (B.findSubstrings bp)  b)
 
@@ -732,7 +732,7 @@ main = do
 
     , let xs  =  VSB.zip vb vb
           xs8 = VSB8.zip vb vb
-      in deepseq (xs, xs8)
+      in (xs, xs8) `deepseq`
          bgroup "unzip"
          [ bgroup "strict" $ foo  (nf   VSB.unzip xs)
                                   (nf     B.unzip xs)
@@ -766,7 +766,7 @@ main = do
           doPackCString packCString =
               withCString str $ \cStr ->
                   packCString cStr >>= deepEvaluate
-      in deepseq str
+      in str `deepseq`
          bli "packCString" (doPackCString VSB.packCString)
                            (doPackCString   B.packCString)
 
@@ -774,7 +774,7 @@ main = do
           doPackCStringLen packCStringLen =
               withCStringLen str $ \cStrLen ->
                   packCStringLen cStrLen >>= deepEvaluate
-      in deepseq str
+      in str `deepseq`
          bli "packCStringLen" (doPackCStringLen VSB.packCStringLen)
                               (doPackCStringLen   B.packCStringLen)
 

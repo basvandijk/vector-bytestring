@@ -28,10 +28,6 @@ source-repository head
   Type:     git
   Location: git://github.com/basvandijk/vector-bytestring.git
 
-flag benchmark
-  Description: Build the benchmark executable
-  Default:     False
-
 Library
   build-depends: base       >= 4     && < 4.5
                , primitive  >= 0.3.1 && < 0.5
@@ -75,10 +71,8 @@ test-suite prop-compiled
   c-sources:     cbits/bytestring.c
   include-dirs:  include
 
-executable bench
-  if !flag(benchmark)
-    buildable: False
-
+benchmark bench-vector-bytestring
+  type:    exitcode-stdio-1.0
   main-is: bench.hs
 
   build-depends: base       >= 4     && < 4.5

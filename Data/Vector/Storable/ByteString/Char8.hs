@@ -1,10 +1,15 @@
-{-# LANGUAGE NoImplicitPrelude
+{-# LANGUAGE CPP
+           , NoImplicitPrelude
            , BangPatterns
            , TypeSynonymInstances
            , FlexibleInstances
            , MagicHash
            , UnboxedTuples
   #-}
+
+#if __GLASGOW_HASKELL__ >= 704
+{-# LANGUAGE Trustworthy #-}
+#endif
 
 {-# OPTIONS_GHC -fno-warn-orphans #-}
 

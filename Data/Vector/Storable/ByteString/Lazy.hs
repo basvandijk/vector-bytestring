@@ -1,4 +1,9 @@
-{-# LANGUAGE BangPatterns #-}
+{-# LANGUAGE CPP, BangPatterns #-}
+
+#if __GLASGOW_HASKELL__ >= 704
+{-# LANGUAGE Trustworthy #-}
+#endif
+
 {-# OPTIONS_GHC -fno-warn-incomplete-patterns
                 -fno-warn-orphans
   #-}

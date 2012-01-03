@@ -1,4 +1,8 @@
-{-# LANGUAGE NoImplicitPrelude #-}
+{-# LANGUAGE CPP, NoImplicitPrelude #-}
+
+#if __GLASGOW_HASKELL__ >= 704
+{-# LANGUAGE Trustworthy #-}
+#endif
 
 -- | Convert our @'ByteString's@ to and from /legacy/ @'Legacy.ByteString's@
 -- (from the @bytestring@ package).

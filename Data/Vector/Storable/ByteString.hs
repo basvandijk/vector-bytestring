@@ -1,9 +1,14 @@
-{-# LANGUAGE NoImplicitPrelude
+{-# LANGUAGE CPP
+           , NoImplicitPrelude
            , BangPatterns
            , NamedFieldPuns
            , MagicHash
            , UnboxedTuples
   #-}
+
+#if __GLASGOW_HASKELL__ >= 704
+{-# LANGUAGE Trustworthy #-}
+#endif
 
 {-# OPTIONS_GHC -fno-warn-name-shadowing #-}
 

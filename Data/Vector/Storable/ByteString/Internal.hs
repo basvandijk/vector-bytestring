@@ -83,7 +83,6 @@ import Data.Function      ( (.) )
 import Data.Ord           ( (<=), (>=) )
 import Data.Word          ( Word8 )
 import Foreign.C.String   ( CString )
-import Foreign.C.Types    ( CSize, CInt, CULong )
 import Foreign.Ptr        ( FunPtr )
 import Foreign.ForeignPtr ( ForeignPtr, withForeignPtr  )
 import Foreign.Ptr        ( Ptr, plusPtr )
@@ -91,6 +90,12 @@ import Prelude            ( Int, ($), ($!), fromIntegral, undefined )
 import System.IO          ( IO )
 -- import Text.Read          ( Read, readsPrec )
 -- import Text.Show          ( Show, showsPrec )
+
+#if __GLASGOW_HASKELL__ >= 704
+import Foreign.C.Types    ( CSize(..), CInt(..), CULong(..) )
+#else
+import Foreign.C.Types    ( CSize,     CInt,     CULong     )
+#endif
 
 #if __GLASGOW_HASKELL__ >= 702
 import System.IO.Unsafe  ( unsafeDupablePerformIO )

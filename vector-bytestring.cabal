@@ -1,5 +1,5 @@
 name:          vector-bytestring
-version:       0.0.0.0
+version:       0.0.0.1
 cabal-version: >=1.9.2
 build-type:    Simple
 license:       BSD3
@@ -7,7 +7,7 @@ license-file:  LICENSE
 copyright:     2011 Bas van Dijk <v.dijk.bas@gmail.com>
 author:        Bas van Dijk <v.dijk.bas@gmail.com>
 maintainer:    Bas van Dijk <v.dijk.bas@gmail.com>
-homepage:      https://github.com/basvandijk/vector-bytestring/
+homepage:      https://github.com/basvandijk/vector-bytestring
 bug-reports:   https://github.com/basvandijk/vector-bytestring/issues
 stability:     experimental
 category:      Data
@@ -58,8 +58,9 @@ Library
   install-includes: bytestring.h
 
 test-suite prop-compiled
-  type:          exitcode-stdio-1.0
-  main-is:       Properties.hs
+  type: exitcode-stdio-1.0
+
+  main-is:        Properties.hs
   hs-source-dirs: tests
 
   build-depends: vector-bytestring
@@ -68,15 +69,13 @@ test-suite prop-compiled
                , directory  >= 1.0   && < 1.2
                , QuickCheck >= 2.3   && < 3
 
-  ghc-options:   -fno-enable-rewrite-rules
-  c-sources:     cbits/bytestring.c
-  include-dirs:  include
+  ghc-options: -fno-enable-rewrite-rules
 
 executable bench
   if !flag(benchmark)
     buildable: False
 
-  main-is: bench.hs
+  main-is:        bench.hs
   hs-source-dirs: bench
 
   build-depends: vector-bytestring
@@ -85,6 +84,4 @@ executable bench
                , bytestring >= 0.9   && < 0.10
                , criterion  >= 0.5   && < 0.7
 
-  ghc-options:   -Wall -O2 -funbox-strict-fields
-  c-sources:     cbits/bytestring.c
-  include-dirs:  include
+  ghc-options: -Wall -O2 -funbox-strict-fields

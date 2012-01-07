@@ -254,14 +254,14 @@ main = do
           f8 y x = w2c $ f (c2w y) (c2w x)
           !z     = 0
           !z8    = w2c z
-      in boo "foldl'" (nf   (VSB.foldl' f  z)  vb)
-                      (nf     (B.foldl' f  z)  b)
-                      (nf  (VSB8.foldl' f8 z8) vb)
-                      (nf    (B8.foldl' f8 z8) b)
-                      (nf  (VSBL.foldl' f  z)  vbl)
-                      (nf    (BL.foldl' f  z)  bl)
-                      (nf (VSBL8.foldl' f8 z8) vbl)
-                      (nf   (BL8.foldl' f8 z8) bl)
+      in boo "foldl_strict" (nf   (VSB.foldl' f  z)  vb)
+                            (nf     (B.foldl' f  z)  b)
+                            (nf  (VSB8.foldl' f8 z8) vb)
+                            (nf    (B8.foldl' f8 z8) b)
+                            (nf  (VSBL.foldl' f  z)  vbl)
+                            (nf    (BL.foldl' f  z)  bl)
+                            (nf (VSBL8.foldl' f8 z8) vbl)
+                            (nf   (BL8.foldl' f8 z8) bl)
 
     , let f  y x = x + y
           f8 y x = w2c $ f (c2w y) (c2w x)
@@ -279,14 +279,14 @@ main = do
 
     , let f  y x = x + y
           f8 y x = w2c $ f (c2w y) (c2w x)
-      in boo "foldl1'" (nf   (VSB.foldl1' f)  vb)
-                       (nf     (B.foldl1' f)  b)
-                       (nf  (VSB8.foldl1' f8) vb)
-                       (nf    (B8.foldl1' f8) b)
-                       (nf  (VSBL.foldl1' f)  vbl)
-                       (nf    (BL.foldl1' f)  bl)
-                       (nf (VSBL8.foldl1' f8) vbl)
-                       (nf   (BL8.foldl1' f8) bl)
+      in boo "foldl1_strict" (nf   (VSB.foldl1' f)  vb)
+                             (nf     (B.foldl1' f)  b)
+                             (nf  (VSB8.foldl1' f8) vb)
+                             (nf    (B8.foldl1' f8) b)
+                             (nf  (VSBL.foldl1' f)  vbl)
+                             (nf    (BL.foldl1' f)  bl)
+                             (nf (VSBL8.foldl1' f8) vbl)
+                             (nf   (BL8.foldl1' f8) bl)
 
     , let f  = (:)
           f8 = (:)
@@ -298,10 +298,10 @@ main = do
           f8 y x = w2c $ f (c2w y) (c2w x)
           !z     = 0
           !z8    = w2c z
-      in bla "foldr'" (nf   (VSB.foldr' f  z)  vb)
-                      (nf     (B.foldr' f  z)  b)
-                      (nf  (VSB8.foldr' f8 z8) vb)
-                      (nf    (B8.foldr' f8 z8) b)
+      in bla "foldr_strict" (nf   (VSB.foldr' f  z)  vb)
+                            (nf     (B.foldr' f  z)  b)
+                            (nf  (VSB8.foldr' f8 z8) vb)
+                            (nf    (B8.foldr' f8 z8) b)
 
     , let f  y x = x + y
           f8 y x = w2c $ f (c2w y) (c2w x)
@@ -319,10 +319,10 @@ main = do
 
     , let f  y x = x + y
           f8 y x = w2c $ f (c2w y) (c2w x)
-      in bla "foldr1'" (nf   (VSB.foldr1' f)  vb)
-                       (nf     (B.foldr1' f)  b)
-                       (nf  (VSB8.foldr1' f8) vb)
-                       (nf    (B8.foldr1' f8) b)
+      in bla "foldr1_strict" (nf   (VSB.foldr1' f)  vb)
+                             (nf     (B.foldr1' f)  b)
+                             (nf  (VSB8.foldr1' f8) vb)
+                             (nf    (B8.foldr1' f8) b)
 
     ----------------------------------------------------------------------------
     -- ** Special folds

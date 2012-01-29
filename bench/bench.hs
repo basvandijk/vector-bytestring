@@ -28,7 +28,9 @@ import qualified Data.List as List ( replicate )
 import Control.DeepSeq ( NFData, rnf, deepseq )
 
 -- from criterion:
-import Criterion.Main ( Benchmarkable, Benchmark, defaultMain, bgroup, bench, nf )
+import Criterion.Main ( Benchmarkable, Benchmark
+                      , defaultMain, bgroup, bench, bcompare, nf
+                      )
 
 -- from vector-bytestring:
 import qualified Data.Vector.Storable.ByteString             as VSB
@@ -997,10 +999,10 @@ foo vb  b
              ]
 
 bar :: Benchmarkable b => b -> b -> [Benchmark]
-bar vb b = [ bench "vector"     vb
-           , bench "bytestring" b
+bar vb b = [ bcompare [ bench "vector"     vb
+                      , bench "bytestring" b
+                      ]
            ]
-
 
 --------------------------------------------------------------------------------
 -- Orphaned NFData instances for legacy ByteStrings

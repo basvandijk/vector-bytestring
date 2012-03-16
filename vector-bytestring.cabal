@@ -78,10 +78,11 @@ executable bench
   main-is:        bench.hs
   hs-source-dirs: bench
 
-  build-depends: vector-bytestring
-               , base       >= 4     && < 4.6
-               , deepseq    >= 1.1   && < 1.4
-               , bytestring >= 0.9   && < 0.10
-               , criterion  >= 0.5   && < 0.7
+  if flag(benchmark)
+    build-depends: vector-bytestring
+                 , base       >= 4     && < 4.6
+                 , deepseq    >= 1.1   && < 1.4
+                 , bytestring >= 0.9   && < 0.10
+                 , criterion  >= 0.5   && < 0.7
 
   ghc-options: -Wall -O2 -funbox-strict-fields

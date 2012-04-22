@@ -116,10 +116,6 @@ import Control.Monad.Primitive ( unsafeInlineIO )
 -- from vector:
 import qualified Data.Vector.Storable as VS
 
--- TODO: Temporary:
--- from deepseq:
-import Control.DeepSeq ( NFData )
-
 
 --------------------------------------------------------------------------------
 -- The ByteString type synonym
@@ -128,9 +124,6 @@ import Control.DeepSeq ( NFData )
 -- | A space-efficient representation of a 'Word8' vector, supporting many
 -- efficient operations.  A 'ByteString' contains 8-bit characters only.
 type ByteString = VS.Vector Word8
-
--- TODO: Temporary:
-instance NFData (VS.Vector a)
 
 {-
 -- TODO: Probably not a good idea to add these orphaned instances:

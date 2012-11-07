@@ -29,7 +29,7 @@ source-repository head
   Location: git://github.com/basvandijk/vector-bytestring.git
 
 Library
-  build-depends: base       >= 4     && < 4.7
+  build-depends: base       >= 4.3   && < 4.7
                , primitive  >= 0.3.1 && < 0.6
                , ghc-prim   >= 0.2   && < 0.4
                , vector     >= 0.9.1 && < 0.11
@@ -60,7 +60,7 @@ test-suite prop-compiled
   hs-source-dirs: tests
 
   build-depends: vector-bytestring
-               , base       >= 4     && < 4.7
+               , base       >= 4.3   && < 4.7
                , random     >= 1.0.1 && < 1.1
                , directory  >= 1.0   && < 1.3
                , QuickCheck >= 2.3   && < 3
@@ -74,7 +74,7 @@ benchmark bench
   hs-source-dirs: bench
 
   build-depends: vector-bytestring
-               , base       >= 4     && < 4.7
+               , base       >= 4.3   && < 4.7
                , deepseq    >= 1.1   && < 1.4
                , bytestring >= 0.9   && < 0.11
                , criterion  >= 0.6.1 && < 0.7

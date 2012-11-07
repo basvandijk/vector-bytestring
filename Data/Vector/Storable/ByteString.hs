@@ -64,10 +64,9 @@ module Data.Vector.Storable.ByteString (
         cons,                   -- :: Word8 -> ByteString -> ByteString
         snoc,                   -- :: ByteString -> Word8 -> ByteString
         append,                 -- :: ByteString -> ByteString -> ByteString
-
         head,                   -- :: ByteString -> Word8
         uncons,                 -- :: ByteString -> Maybe (Word8, ByteString)
-
+        unsnoc,                 -- :: ByteString -> Maybe (ByteString, Word8)
         last,                   -- :: ByteString -> Word8
         tail,                   -- :: ByteString -> ByteString
         init,                   -- :: ByteString -> ByteString
@@ -78,7 +77,6 @@ module Data.Vector.Storable.ByteString (
         map,                    -- :: (Word8 -> Word8) -> ByteString -> ByteString
         reverse,                -- :: ByteString -> ByteString
         intersperse,            -- :: Word8 -> ByteString -> ByteString
-
         intercalate,            -- :: ByteString -> [ByteString] -> ByteString
         transpose,              -- :: [ByteString] -> [ByteString]
 
@@ -358,6 +356,14 @@ uncons v
     | VS.length v == 0 = Nothing
     | otherwise        = Just (VS.unsafeHead v, VS.unsafeTail v)
 {-# INLINE uncons #-}
+
+-- | /O(1)/ Extract the 'init' and 'last' of a ByteString, returning Nothing
+-- if it is empty.
+unsnoc :: ByteString -> Maybe (ByteString, Word8)
+unsnoc v
+    | VS.length v == 0 = Nothing
+    | otherwise        = Just (VS.unsafeInit v, VS.unsafeLast v)
+{-# INLINE unsnoc #-}
 
 -- | /O(1)/ Extract the last element of a ByteString, which must be finite and non-empty.
 -- An exception will be thrown in the case of an empty ByteString.
@@ -650,7 +656,7 @@ unfoldrN i f x0
   where
     go !p !x !n =
         case f x of
-          Nothing      -> return (0, n, Nothing)
+          Nothing         -> return (0, n, Nothing)
           Just (w, x')
               | n == i    -> return (0, n, Just x)
               | otherwise -> do

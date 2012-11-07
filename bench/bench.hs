@@ -6,6 +6,8 @@
 -- Disable warnings for the deprecated findSubstring and findSubstrings:
 {-# OPTIONS_GHC -fno-warn-warnings-deprecations #-}
 
+{-# LANGUAGE TypeSynonymInstances, FlexibleInstances #-}
+
 module Main where
 
 
@@ -49,7 +51,19 @@ import qualified Data.ByteString.Lazy.Char8                  as BL8
 import qualified Data.ByteString.Unsafe                      as BU
 import qualified Data.ByteString.Internal                    as BI
 
+#if !MIN_VERSION_bytestring(0,10,0)
 import qualified Data.ByteString.Lazy.Internal               as BLI
+
+instance NFData BL.ByteString where
+    rnf BLI.Empty = ()
+    rnf (BLI.Chunk _ cs) = rnf cs
+
+instance NFData B.ByteString
+#endif
+
+#if !MIN_VERSION_vector(0,10,0)
+instance NFData VSB.ByteString
+#endif
 
 
 --------------------------------------------------------------------------------
@@ -1003,13 +1017,3 @@ bar vb b = [ bcompare [ bench "vector"     vb
                       , bench "bytestring" b
                       ]
            ]
-
---------------------------------------------------------------------------------
--- Orphaned NFData instances for legacy ByteStrings
---------------------------------------------------------------------------------
-
-instance NFData B.ByteString
-
-instance NFData BL.ByteString where
-    rnf BLI.Empty = ()
-    rnf (BLI.Chunk _ cs) = rnf cs

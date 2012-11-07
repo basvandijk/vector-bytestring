@@ -1,5 +1,5 @@
 name:          vector-bytestring
-version:       0.0.0.1
+version:       0.0.0.2
 cabal-version: >=1.9.2
 build-type:    Simple
 license:       BSD3
@@ -29,12 +29,12 @@ source-repository head
   Location: git://github.com/basvandijk/vector-bytestring.git
 
 Library
-  build-depends: base       >= 4     && < 4.6
-               , primitive  >= 0.3.1 && < 0.5
-               , ghc-prim   >= 0.2   && < 0.3
-               , vector     >= 0.9.1 && < 0.10
+  build-depends: base       >= 4     && < 4.7
+               , primitive  >= 0.3.1 && < 0.6
+               , ghc-prim   >= 0.2   && < 0.4
+               , vector     >= 0.9.1 && < 0.11
                , deepseq    >= 1.1   && < 1.4
-               , bytestring >= 0.9   && < 0.10
+               , bytestring >= 0.9   && < 0.11
 
   exposed-modules: Data.Vector.Storable.ByteString
                    Data.Vector.Storable.ByteString.Internal
@@ -60,9 +60,9 @@ test-suite prop-compiled
   hs-source-dirs: tests
 
   build-depends: vector-bytestring
-               , base       >= 4     && < 4.6
+               , base       >= 4     && < 4.7
                , random     >= 1.0.1 && < 1.1
-               , directory  >= 1.0   && < 1.2
+               , directory  >= 1.0   && < 1.3
                , QuickCheck >= 2.3   && < 3
 
   ghc-options: -fno-enable-rewrite-rules
@@ -74,9 +74,9 @@ benchmark bench
   hs-source-dirs: bench
 
   build-depends: vector-bytestring
-               , base       >= 4     && < 4.6
+               , base       >= 4     && < 4.7
                , deepseq    >= 1.1   && < 1.4
-               , bytestring >= 0.9   && < 0.10
+               , bytestring >= 0.9   && < 0.11
                , criterion  >= 0.5   && < 0.7
 
   ghc-options: -Wall -O2 -funbox-strict-fields

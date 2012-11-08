@@ -66,6 +66,7 @@ module Data.Vector.Storable.ByteString.Char8 (
         B.append,          -- :: ByteString -> ByteString -> ByteString
         head,              -- :: ByteString -> Char
         uncons,            -- :: ByteString -> Maybe (Char, ByteString)
+        unsnoc,            -- :: ByteString -> Maybe (ByteString, Char)
         last,              -- :: ByteString -> Char
         B.tail,            -- :: ByteString -> ByteString
         B.init,            -- :: ByteString -> ByteString
@@ -213,6 +214,7 @@ module Data.Vector.Storable.ByteString.Char8 (
         B.hGetLine,        -- :: Handle -> IO ByteString
         B.hGetContents,    -- :: Handle -> IO ByteString
         B.hGet,            -- :: Handle -> Int -> IO ByteString
+        B.hGetSome,        -- :: Handle -> Int -> IO ByteString
         B.hGetNonBlocking, -- :: Handle -> Int -> IO ByteString
         B.hPut,            -- :: Handle -> ByteString -> IO ()
         B.hPutNonBlocking, -- :: Handle -> ByteString -> IO ByteString
@@ -383,6 +385,14 @@ head = w2c . VS.head
 uncons :: ByteString -> Maybe (Char, ByteString)
 uncons = fmap (\(w,v) -> (w2c w, v)) . B.uncons
 {-# INLINE uncons #-}
+
+-- | /O(1)/ Extract the 'init' and 'last' of a ByteString, returning Nothing
+-- if it is empty.
+unsnoc :: ByteString -> Maybe (ByteString, Char)
+unsnoc bs = case B.unsnoc bs of
+                  Nothing -> Nothing
+                  Just (bs', w) -> Just (bs', w2c w)
+{-# INLINE unsnoc #-}
 
 -- | /O(1)/ Extract the last element of a packed string, which must be non-empty.
 last :: ByteString -> Char

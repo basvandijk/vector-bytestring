@@ -21,6 +21,8 @@ module Data.Vector.Storable.ByteString.Unsafe (
         -- * Unchecked access
         unsafeHead,             -- :: ByteString -> Word8
         unsafeTail,             -- :: ByteString -> ByteString
+        unsafeInit,             -- :: ByteString -> ByteString
+        unsafeLast,             -- :: ByteString -> Word8
         unsafeIndex,            -- :: ByteString -> Int -> Word8
         unsafeTake,             -- :: Int -> ByteString -> ByteString
         unsafeDrop,             -- :: Int -> ByteString -> ByteString
@@ -87,6 +89,20 @@ unsafeHead = VS.unsafeHead
 unsafeTail :: ByteString -> ByteString
 unsafeTail = VS.unsafeTail
 {-# INLINE unsafeTail #-}
+
+-- | A variety of 'init' for non-empty ByteStrings. 'unsafeInit' omits the
+-- check for the empty case. As with 'unsafeHead', the programmer must
+-- provide a separate proof that the ByteString is non-empty.
+unsafeInit :: ByteString -> ByteString
+unsafeInit = VS.unsafeInit
+{-# INLINE unsafeInit #-}
+
+-- | A variety of 'last' for non-empty ByteStrings. 'unsafeLast' omits the
+-- check for the empty case. As with 'unsafeHead', the programmer must
+-- provide a separate proof that the ByteString is non-empty.
+unsafeLast :: ByteString -> Word8
+unsafeLast = VS.unsafeLast
+{-# INLINE unsafeLast #-}
 
 -- | Unsafe 'ByteString' index (subscript) operator, starting from 0, returning a 'Word8'
 -- This omits the bounds check, which means there is an accompanying
@@ -240,15 +256,12 @@ unsafePackMallocCString cstr = do
 --
 unsafePackAddress :: Addr# -> IO ByteString
 unsafePackAddress addr# = do
-    let cstr :: CString
-        cstr = Ptr addr#
-
-        p :: Ptr Word8
-        p = castPtr cstr
-
-    fp <- newForeignPtr_ p
+    fp <- newForeignPtr_ (castPtr cstr)
     l <- c_strlen cstr
     return $! VS.unsafeFromForeignPtr0 fp (fromIntegral l)
+        where
+          cstr :: CString
+          cstr = Ptr addr#
 {-# INLINE unsafePackAddress #-}
 
 -- | /O(1)/ 'unsafePackAddressLen' provides constant-time construction of
@@ -270,10 +283,8 @@ unsafePackAddress addr# = do
 --
 unsafePackAddressLen :: Int -> Addr# -> IO ByteString
 unsafePackAddressLen l addr# = do
-    let p :: Ptr Word8
-        p = Ptr addr#
-    fp <- newForeignPtr_ p
-    return $! VS.unsafeFromForeignPtr0 fp (fromIntegral l)
+    fp <- newForeignPtr_ (Ptr addr#)
+    return $! VS.unsafeFromForeignPtr0 fp l
 {-# INLINE unsafePackAddressLen #-}
 
 -- | /O(1)/ Construct a 'ByteString' given a Ptr Word8 to a buffer, a
@@ -301,6 +312,7 @@ unsafePackCStringFinalizer p l f = do
 -- ever generated from the underlying byte array are no longer live.
 --
 unsafeFinalize :: ByteString -> IO ()
-unsafeFinalize v = let (fp, _) = VS.unsafeToForeignPtr0 v
-                   in finalizeForeignPtr fp
+unsafeFinalize v = finalizeForeignPtr fp
+    where
+      (fp, _) = VS.unsafeToForeignPtr0 v
 {-# INLINE unsafeFinalize #-}

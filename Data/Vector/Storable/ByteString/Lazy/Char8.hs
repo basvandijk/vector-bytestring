@@ -38,6 +38,8 @@ module Data.Vector.Storable.ByteString.Lazy.Char8 (
         unpack,                 -- :: ByteString -> String
         fromChunks,             -- :: [Strict.ByteString] -> ByteString
         toChunks,               -- :: ByteString -> [Strict.ByteString]
+        fromStrict,             -- :: Strict.ByteString -> ByteString
+        toStrict,               -- :: ByteString -> Strict.ByteString
 
         -- * Basic interface
         cons,                   -- :: Char -> ByteString -> ByteString
@@ -48,6 +50,7 @@ module Data.Vector.Storable.ByteString.Lazy.Char8 (
         uncons,                 -- :: ByteString -> Maybe (Char, ByteString)
         last,                   -- :: ByteString -> Char
         tail,                   -- :: ByteString -> ByteString
+        unsnoc,                 -- :: ByteString -> Maybe (ByteString, Char)
         init,                   -- :: ByteString -> ByteString
         null,                   -- :: ByteString -> Bool
         length,                 -- :: ByteString -> Int64
@@ -160,6 +163,10 @@ module Data.Vector.Storable.ByteString.Lazy.Char8 (
         readInteger,
 
         -- * I\/O with 'ByteString's
+        -- | ByteString I/O uses binary mode, without any character decoding
+        -- or newline conversion. The fact that it does not respect the Handle
+        -- newline mode is considered a flaw and may be changed in a future version
+
 
         -- ** Standard input and output
         getContents,            -- :: IO ByteString
@@ -185,7 +192,7 @@ module Data.Vector.Storable.ByteString.Lazy.Char8 (
 
 -- Functions transparently exported
 import Data.Vector.Storable.ByteString.Lazy
-        (fromChunks, toChunks
+        (fromChunks, toChunks, fromStrict, toStrict
         ,empty,null,length,tail,init,append,reverse,transpose,cycle
         ,concat,take,drop,splitAt,intercalate,isPrefixOf,group,inits,tails,copy
         ,hGetContents, hGet, hPut, getContents
@@ -277,6 +284,14 @@ uncons bs = case L.uncons bs of
                   Nothing -> Nothing
                   Just (w, bs') -> Just (w2c w, bs')
 {-# INLINE uncons #-}
+
+-- | /O(n\/c)/ Extract the 'init' and 'last' of a ByteString, returning Nothing
+-- if it is empty.
+unsnoc :: ByteString -> Maybe (ByteString, Char)
+unsnoc bs = case L.unsnoc bs of
+                  Nothing -> Nothing
+                  Just (bs', w) -> Just (bs', w2c w)
+{-# INLINE unsnoc #-}
 
 -- | /O(1)/ Extract the last element of a packed string, which must be non-empty.
 last :: ByteString -> Char

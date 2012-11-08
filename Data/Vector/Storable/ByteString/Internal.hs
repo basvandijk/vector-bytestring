@@ -31,18 +31,25 @@ module Data.Vector.Storable.ByteString.Internal (
         -- * The @ByteString@ type and representation
         ByteString,         -- instances: Eq, Ord, Show, Read, Data, Typeable
 
+        -- * Conversion with lists: packing and unpacking
+        packBytes, packUptoLenBytes, unsafePackLenBytes,
+        packChars, packUptoLenChars, unsafePackLenChars,
+        unpackBytes, unpackAppendBytesLazy, unpackAppendBytesStrict,
+        unpackChars, unpackAppendCharsLazy, unpackAppendCharsStrict,
+
         -- * Low level introduction and elimination
         create,                 -- :: Int -> (Ptr Word8 -> IO ()) -> IO ByteString
+        createUptoN,            -- :: Int -> (Ptr Word8 -> IO Int) -> IO ByteString
 
         createAndTrim,          -- :: Int -> (Ptr Word8 -> IO Int) -> IO  ByteString
         createAndTrim',         -- :: Int -> (Ptr Word8 -> IO (Int, Int, a)) -> IO (ByteString, a)
         unsafeCreate,           -- :: Int -> (Ptr Word8 -> IO ()) ->  ByteString
+        unsafeCreateUptoN,      -- :: Int -> (Ptr Word8 -> IO Int) ->  ByteString
         mallocByteString,       -- :: Int -> IO (ForeignPtr a)
 
         -- * Conversion to and from ForeignPtrs
         fromForeignPtr,         -- :: ForeignPtr Word8 -> Int -> Int -> ByteString
         toForeignPtr,           -- :: ByteString -> (ForeignPtr Word8, Int, Int)
-
 
         -- * Utilities
         inlinePerformIO,        -- :: IO a -> a
@@ -65,10 +72,7 @@ module Data.Vector.Storable.ByteString.Internal (
         c_count,                -- :: Ptr Word8 -> CInt -> Word8 -> IO CInt
 
         -- * Chars
-        w2c,                    -- :: Word8 -> Char
-        c2w,                    -- :: Char -> Word8
-        isSpaceWord8,           -- :: Word8 -> Bool
-        isSpaceChar8            -- :: Char -> Bool
+        w2c, c2w, isSpaceWord8, isSpaceChar8
 
   ) where
 
@@ -79,7 +83,7 @@ module Data.Vector.Storable.ByteString.Internal (
 
 -- from base:
 import Control.Exception  ( assert )
-import Control.Monad      ( return, void )
+import Control.Monad      ( (>>), return, void )
 import Data.Char          ( Char, ord )
 import Data.Bool          ( Bool, (||) )
 import Data.Eq            ( (==) )
@@ -90,10 +94,13 @@ import Foreign.C.String   ( CString )
 import Foreign.Ptr        ( FunPtr )
 import Foreign.ForeignPtr ( ForeignPtr, withForeignPtr  )
 import Foreign.Ptr        ( Ptr, plusPtr )
-import Prelude            ( Int, ($), ($!), fromIntegral, undefined )
+import Foreign.Storable   ( peek, poke )
+import Prelude            ( Int, (-), ($), ($!), fromIntegral, otherwise, undefined )
 import System.IO          ( IO )
 -- import Text.Read          ( Read, readsPrec )
 -- import Text.Show          ( Show, showsPrec )
+
+import qualified Data.List as List
 
 #if __GLASGOW_HASKELL__ >= 704
 import Foreign.C.Types    ( CSize(..), CInt(..), CULong(..) )
@@ -161,6 +168,111 @@ packWith k str = unsafeCreate (length str) $ \p -> go p str
 {-# INLINE packWith #-}
 -}
 
+------------------------------------------------------------------------
+-- Packing and unpacking from lists
+
+packBytes :: [Word8] -> ByteString
+packBytes ws = unsafePackLenBytes (List.length ws) ws
+
+packChars :: [Char] -> ByteString
+packChars cs = unsafePackLenChars (List.length cs) cs
+
+unsafePackLenBytes :: Int -> [Word8] -> ByteString
+unsafePackLenBytes len xs0 =
+    unsafeCreate len $ \p -> go p xs0
+  where
+    go !_ []     = return ()
+    go !p (x:xs) = poke p x >> go (p `plusPtr` 1) xs
+
+unsafePackLenChars :: Int -> [Char] -> ByteString
+unsafePackLenChars len cs0 =
+    unsafeCreate len $ \p -> go p cs0
+  where
+    go !_ []     = return ()
+    go !p (c:cs) = poke p (c2w c) >> go (p `plusPtr` 1) cs
+
+packUptoLenBytes :: Int -> [Word8] -> (ByteString, [Word8])
+packUptoLenBytes len xs0 =
+    unsafeCreateUptoN' len $ \p -> go p len xs0
+  where
+    go !_ !n []     = return (len-n, [])
+    go !_ !0 xs     = return (len,   xs)
+    go !p !n (x:xs) = poke p x >> go (p `plusPtr` 1) (n-1) xs
+
+packUptoLenChars :: Int -> [Char] -> (ByteString, [Char])
+packUptoLenChars len cs0 =
+    unsafeCreateUptoN' len $ \p -> go p len cs0
+  where
+    go !_ !n []     = return (len-n, [])
+    go !_ !0 cs     = return (len,   cs)
+    go !p !n (c:cs) = poke p (c2w c) >> go (p `plusPtr` 1) (n-1) cs
+
+-- Unpacking bytestrings into lists effeciently is a tradeoff: on the one hand
+-- we would like to write a tight loop that just blats the list into memory, on
+-- the other hand we want it to be unpacked lazily so we don't end up with a
+-- massive list data structure in memory.
+--
+-- Our strategy is to combine both: we will unpack lazily in reasonable sized
+-- chunks, where each chunk is unpacked strictly.
+--
+-- unpackBytes and unpackChars do the lazy loop, while unpackAppendBytes and
+-- unpackAppendChars do the chunks strictly.
+
+unpackBytes :: ByteString -> [Word8]
+unpackBytes bs = unpackAppendBytesLazy bs []
+
+unpackChars :: ByteString -> [Char]
+unpackChars bs = unpackAppendCharsLazy bs []
+
+unpackAppendBytesLazy :: ByteString -> [Word8] -> [Word8]
+unpackAppendBytesLazy v xs
+  | VS.length v <= 100 = unpackAppendBytesStrict v      xs
+  | otherwise          = unpackAppendBytesStrict before remainder
+  where
+    (before, after) = VS.splitAt 100 v
+    remainder = unpackAppendBytesLazy after xs
+
+  -- Why 100 bytes you ask? Because on a 64bit machine the list we allocate
+  -- takes just shy of 4k which seems like a reasonable amount.
+  -- (5 words per list element, 8 bytes per word, 100 elements = 4000 bytes)
+
+unpackAppendCharsLazy :: ByteString -> [Char] -> [Char]
+unpackAppendCharsLazy v cs
+  | VS.length v <= 100 = unpackAppendCharsStrict v      cs
+  | otherwise          = unpackAppendCharsStrict before remainder
+  where
+    (before, after) = VS.splitAt 100 v
+    remainder = unpackAppendCharsLazy after cs
+
+-- For these unpack functions, since we're unpacking the whole list strictly we
+-- build up the result list in an accumulator. This means we have to build up
+-- the list starting at the end. So our traversal starts at the end of the
+-- buffer and loops down until we hit the sentinal:
+
+unpackAppendBytesStrict :: ByteString -> [Word8] -> [Word8]
+unpackAppendBytesStrict v xs =
+    unsafeInlineIO $ withForeignPtr fp $ \base ->
+      let sentinal = base `plusPtr` (-1)
+          loop !p acc
+              | p == sentinal = return acc
+              | otherwise     = do x <- peek p
+                                   loop (p `plusPtr` (-1)) (x:acc)
+      in loop (base `plusPtr` (l-1)) xs
+  where
+    (fp, l) = VS.unsafeToForeignPtr0 v
+
+unpackAppendCharsStrict :: ByteString -> [Char] -> [Char]
+unpackAppendCharsStrict v xs =
+    unsafeInlineIO $ withForeignPtr fp $ \base ->
+      let sentinal = base `plusPtr` (-1)
+          loop !p acc
+              | p == sentinal = return acc
+              | otherwise     = do x <- peek p
+                                   loop (p `plusPtr` (-1)) (w2c x:acc)
+      in loop (base `plusPtr` (l-1)) xs
+  where
+    (fp, l) = VS.unsafeToForeignPtr0 v
+
 --------------------------------------------------------------------------------
 -- * Low level introduction and elimination
 --------------------------------------------------------------------------------
@@ -174,6 +286,23 @@ create l f = do
     return $! VS.unsafeFromForeignPtr0 fp l
 {-# INLINE create #-}
 
+-- | Create ByteString of up to size size @l@ and use action @f@ to fill it's
+-- contents which returns its true size.
+createUptoN :: Int -> (Ptr Word8 -> IO Int) -> IO ByteString
+createUptoN l f = do
+    fp <- mallocByteString l
+    l' <- withForeignPtr fp $ \p -> f p
+    assert (l' <= l) $ return $! VS.unsafeFromForeignPtr0 fp l'
+{-# INLINE createUptoN #-}
+
+-- | Create ByteString of up to size @l@ and use action @f@ to fill it's contents which returns its true size.
+createUptoN' :: Int -> (Ptr Word8 -> IO (Int, a)) -> IO (ByteString, a)
+createUptoN' l f = do
+    fp <- mallocByteString l
+    (l', res) <- withForeignPtr fp $ \p -> f p
+    assert (l' <= l) $ return (VS.unsafeFromForeignPtr0 fp l', res)
+{-# INLINE createUptoN' #-}
+
 -- | A way of creating ByteStrings outside the IO monad. The @Int@
 -- argument gives the final size of the ByteString. Unlike
 -- 'createAndTrim' the ByteString is not reallocated if the final size
@@ -181,6 +310,18 @@ create l f = do
 unsafeCreate :: Int -> (Ptr Word8 -> IO ()) -> ByteString
 unsafeCreate l f = unsafeDupablePerformIO (create l f)
 {-# INLINE unsafeCreate #-}
+
+-- | Like 'unsafeCreate' but instead of giving the final size of the
+-- ByteString, it is just an upper bound. The inner action returns
+-- the actual size. Unlike 'createAndTrim' the ByteString is not
+-- reallocated if the final size is less than the estimated size.
+unsafeCreateUptoN :: Int -> (Ptr Word8 -> IO Int) -> ByteString
+unsafeCreateUptoN l f = unsafeDupablePerformIO (createUptoN l f)
+{-# INLINE unsafeCreateUptoN #-}
+
+unsafeCreateUptoN' :: Int -> (Ptr Word8 -> IO (Int, a)) -> (ByteString, a)
+unsafeCreateUptoN' l f = unsafeDupablePerformIO (createUptoN' l f)
+{-# INLINE unsafeCreateUptoN' #-}
 
 -- | Wrapper of 'mallocForeignPtrBytes' with faster implementation for GHC.
 mallocByteString :: Int -> IO (ForeignPtr a)
@@ -272,14 +413,17 @@ foreign import ccall unsafe "string.h memchr" c_memchr
 memchr :: Ptr Word8 -> Word8 -> CSize -> IO (Ptr Word8)
 memchr p w s = c_memchr p (fromIntegral w) s
 
-foreign import ccall unsafe "string.h memcmp" memcmp
+foreign import ccall unsafe "string.h memcmp" c_memcmp
     :: Ptr Word8 -> Ptr Word8 -> CSize -> IO CInt
+
+memcmp :: Ptr Word8 -> Ptr Word8 -> Int -> IO CInt
+memcmp p q s = c_memcmp p q (fromIntegral s)
 
 foreign import ccall unsafe "string.h memcpy" c_memcpy
     :: Ptr Word8 -> Ptr Word8 -> CSize -> IO (Ptr Word8)
 
-memcpy :: Ptr Word8 -> Ptr Word8 -> CSize -> IO ()
-memcpy p q s = void $ c_memcpy p q s
+memcpy :: Ptr Word8 -> Ptr Word8 -> Int -> IO ()
+memcpy p q s = void $ c_memcpy p q (fromIntegral s)
 
 foreign import ccall unsafe "string.h memset" c_memset
     :: Ptr Word8 -> CInt -> CSize -> IO (Ptr Word8)

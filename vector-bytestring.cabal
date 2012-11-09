@@ -36,17 +36,32 @@ Library
                , deepseq    >= 1.1   && < 1.4
                , bytestring >= 0.9   && < 0.11
 
-  exposed-modules: Data.Vector.Storable.ByteString
-                   Data.Vector.Storable.ByteString.Internal
-                   Data.Vector.Storable.ByteString.Unsafe
-                   Data.Vector.Storable.ByteString.Char8
-                   Data.Vector.Storable.ByteString.Legacy
-                   Data.Vector.Storable.ByteString.Lazy
-                   Data.Vector.Storable.ByteString.Lazy.Internal
-                   Data.Vector.Storable.ByteString.Lazy.Char8
-                   Data.Vector.Storable.ByteString.Lazy.Legacy
+  exposed-modules:  Data.Vector.Storable.ByteString
+                    Data.Vector.Storable.ByteString.Internal
+                    Data.Vector.Storable.ByteString.Unsafe
+                    Data.Vector.Storable.ByteString.Char8
+                    Data.Vector.Storable.ByteString.Legacy
+                    Data.Vector.Storable.ByteString.Lazy
+                    Data.Vector.Storable.ByteString.Lazy.Internal
+                    Data.Vector.Storable.ByteString.Lazy.Char8
+                    Data.Vector.Storable.ByteString.Lazy.Legacy
+                    Data.Vector.Storable.ByteString.Builder
+                    Data.Vector.Storable.ByteString.Builder.Extra
+                    Data.Vector.Storable.ByteString.Builder.Prim
+                    Data.Vector.Storable.ByteString.Builder.Internal
+                    Data.Vector.Storable.ByteString.Builder.Prim.Internal
+  other-modules:    Data.Vector.Storable.ByteString.Builder.ASCII
+                    Data.Vector.Storable.ByteString.Builder.Prim.Binary
+                    Data.Vector.Storable.ByteString.Builder.Prim.ASCII
+                    Data.Vector.Storable.ByteString.Builder.Prim.Internal.Floating
+                    Data.Vector.Storable.ByteString.Builder.Prim.Internal.UncheckedShifts
+                    Data.Vector.Storable.ByteString.Builder.Prim.Internal.Base16
 
-  ghc-options: -Wall -O2 -funbox-strict-fields
+  ghc-options:     -Wall
+                   -O2 -funbox-strict-fields
+                   -fmax-simplifier-iterations=10
+                   -fdicts-cheap
+                   -fspec-constr-count=6
 
   c-sources:        cbits/bytestring.c
   include-dirs:     include

@@ -195,6 +195,9 @@ main = do
 
     , BOO4(head,   vb, b, vbl, bl)
     , BOO4(uncons, vb, b, vbl, bl)
+#if MIN_VERSION_bytestring(0,10,2)
+    , BOO4(unsnoc, vb, b, vbl, bl)
+#endif
     , BOO4(last,   vb, b, vbl, bl)
 
     , BLO(tail,   vb, b, vbl, bl)

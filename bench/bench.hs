@@ -80,8 +80,8 @@ instance NFData VSB.ByteString
                     (nf VSBL8.name vbl8) \
                     (nf   BL8.name bl8))
 
-#define BOO4(name, vb, b, vbl, bl) BOO8(name, vb, b, vb, b, vbl, bl, vbl, bl)
-#define BOO2(name, a, a8)          BOO8(name, a, a, a8, a8, a, a, a8, a8)
+#define BOO4(name, vb, b, vbl, bl) BOO8(name, vb, b, vb, b,  vbl, bl, vbl, bl)
+#define BOO2(name, a, a8)          BOO8(name, a,  a, a8, a8, a,   a,  a8,  a8)
 
 #define BOOA8(name,  vb,  vb_,   b,  b_,   vb8,  vb8_,   b8,  b8_   \
                   ,  vbl, vbl_,  bl, bl_,  vbl8, vbl8_,  bl8, bl8_) \
@@ -110,9 +110,6 @@ instance NFData VSB.ByteString
 
 #define BLOSL(name, s, l, vb, b, vbl, bl) \
         BLOO(name,  s, vb,  s, b,  l, vbl,  l, bl)
-
-#define BLOBIN(name,   vb1, vb2,   b1, b2,   vbl1, vbl2,   bl1, bl2) \
-        BLOO(name,  vb1, vb2,  b1, b2,  vbl1, vbl2,  bl1, bl2)
 
 #define BLAA(name, a, a8, vb, b)           \
         (bla "name" (nf  (VSB.name a)  vb) \
@@ -191,7 +188,7 @@ main = do
           !z8 = w2c z
       in BOOB(snoc, z, z8, vb, b, vbl, bl)
 
-    , BLOBIN(append,   vb, vb,   b, b,   vbl, vbl,   bl, bl)
+    , BLOO(append,   vb, vb,   b, b,   vbl, vbl,   bl, bl)
 
     , BOO4(head,   vb, b, vbl, bl)
     , BOO4(uncons, vb, b, vbl, bl)
@@ -226,7 +223,7 @@ main = do
           vblsN  = List.replicate n vbl
           blsN   = List.replicate n bl
       in (vbsN, bsN, vblsN, blsN) `deepseq`
-         BLOBIN(intercalate,   vb, vbsN,   b, bsN,   vbl, vblsN,   bl, blsN)
+         BLOO(intercalate,   vb, vbsN,   b, bsN,   vbl, vblsN,   bl, blsN)
 
       -- TODO: See if the RULE
       -- "ByteString specialise intercalate c -> intercalateByte" fires:
@@ -593,7 +590,7 @@ main = do
           vblp = VSBL.take p64 vbl
           blp  =   BL.take p64 bl
       in (vbp, bp, vblp, blp) `deepseq`
-         BLOBIN(isPrefixOf,   vbp, vb,   bp, b,   vblp, vbl,   blp, bl)
+         BLOO(isPrefixOf,   vbp, vb,   bp, b,   vblp, vbl,   blp, bl)
 
     , let p    = VSB.length vb - 1
           vbp  = VSB.drop p vb

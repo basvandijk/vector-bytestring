@@ -221,19 +221,12 @@ import Prelude hiding
 import System.IO            (Handle,stdout,hClose,openFile,IOMode(..))
 import Control.Exception    (bracket)
 
-import Data.String          (IsString(..))
-
-
 ------------------------------------------------------------------------
 
 -- | /O(1)/ Convert a 'Char' into a 'ByteString'
 singleton :: Char -> ByteString
 singleton = L.singleton . c2w
 {-# INLINE singleton #-}
-
-instance IsString ByteString where
-    fromString = pack
-    {-# INLINE fromString #-}
 
 -- | /O(n)/ Convert a 'String' into a 'ByteString'.
 pack :: [Char] -> ByteString
